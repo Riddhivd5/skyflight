@@ -835,6 +835,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .seg button.on{background:var(--fg);color:#0a0f18}
   #map{position:fixed;inset:0;z-index:0;background:#0a1120}
   #map.leaflet-container{background:#0a1120;font:inherit}
+  #map.sat2d .leaflet-tile-pane{filter:brightness(.85) saturate(.95)}
   #map.osmdark .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) saturate(.45) brightness(.78) contrast(1.08)}
   #mapcv{position:absolute;left:0;top:0;pointer-events:none;z-index:450;transition:opacity .12s}
   #map .leaflet-control-attribution{background:rgba(7,11,18,.7);color:#6f7d93;font:10px var(--mono);padding:2px 8px;border-radius:8px 0 0 0}
@@ -987,6 +988,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="mapctl">
   <button class="glass" id="m-loc" aria-label="Center on me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
   <button class="glass only3d" id="follow" aria-label="Follow selected plane"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></button>
+  <button class="glass" id="m-layers" aria-label="Satellite / dark map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg></button>
   <button class="glass" id="m-find" aria-label="Find a flight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
 </div>
 
@@ -1160,7 +1162,10 @@ const AIRLINES = {
   UAL:["UA","United"],AAL:["AA","American"],DAL:["DL","Delta"],ACA:["AC","Air Canada"],QFA:["QF","Qantas"],FDX:["FX","FedEx"],UPS:["5X","UPS"],
   RBA:["BI","Royal Brunei"],UBG:["BS","US-Bangla"],RNA:["RA","Nepal Airlines"],VJC:["VJ","VietJet"],HVN:["VN","Vietnam Airlines"],
   GIA:["GA","Garuda"],PAL:["PR","Philippine Airlines"],EVA:["BR","EVA Air"],CAL:["CI","China Airlines"],AZA:["AZ","ITA Airways"],
-  RJA:["RJ","Royal Jordanian"],MSR:["MS","EgyptAir"],KQA:["KQ","Kenya Airways"],SAA:["SA","South African"],AUA:["OS","Austrian"],FIN:["AY","Finnair"],SAS:["SK","SAS"]
+  RJA:["RJ","Royal Jordanian"],MSR:["MS","EgyptAir"],KQA:["KQ","Kenya Airways"],SAA:["SA","South African"],AUA:["OS","Austrian"],FIN:["AY","Finnair"],SAS:["SK","SAS"],
+  JZR:["J9","Jazeera Airways"],KNE:["XY","flynas"],FAD:["F3","flyadeal"],IAW:["IA","Iraqi Airways"],PIA:["PK","PIA"],MAU:["MK","Air Mauritius"],
+  AIQ:["FD","Thai AirAsia"],XAX:["D7","AirAsia X"],BTK:["ID","Batik Air"],MXD:["OD","Batik Air Malaysia"],CSC:["3U","Sichuan Airlines"],AFL:["SU","Aeroflot"],
+  TAY:["3V","ASL Airlines"],GEC:["LH","Lufthansa Cargo"],CLX:["CV","Cargolux"],MPH:["MP","Martinair"],ABW:["RU","AirBridgeCargo"],QDA:["QD","Quikjet"],SJX:["JX","Starlux"]
 };
 const TYPES = {
   A20N:"A320neo",A21N:"A321neo",A320:"A320",A321:"A321",A319:"A319",A318:"A318",A332:"A330-200",A333:"A330-300",A339:"A330-900neo",
@@ -1182,7 +1187,7 @@ const typeName = t => TYPES[t] || t || "";
 
 /* ---------------- settings ---------------- */
 const KEY = EMBED ? "skyflight-demo" : "skyflight";
-const DEFAULTS = { mode: "ar", exag: 2.5, cartoKey: "", fov: 66, offset: 0, radiusNm: 40, overKm: 5, alert: true, source: "auto", proxy: "", obsAlt: "", loc: "", demo: EMBED };
+const DEFAULTS = { mode: "ar", exag: 2.5, sat3d: true, sat2d: false, cartoKey: "", fov: 66, offset: 0, radiusNm: 40, overKm: 5, alert: true, source: "auto", proxy: "", obsAlt: "", loc: "", demo: EMBED };
 let S = { ...DEFAULTS };
 try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
 if (EMBED) { S.demo = true; S.loc = ""; }
@@ -1800,11 +1805,21 @@ const AIRPORTS = [["BLR","Bengaluru",13.1986,77.7066],["MAA","Chennai",12.9941,8
   ["MYQ","Mysuru",12.2300,76.6558],["HBX","Hubballi",15.3617,75.0849],["IXM","Madurai",9.8345,78.0934],["TRZ","Tiruchirappalli",10.7654,78.7097],["VGA","Vijayawada",16.5304,80.7968]];
 const BAND_COL = { lo: "#ff8a5b", "": "#ffb547", hi: "#a78bfa" };
 const PLANE_PATH = new Path2D("M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z");
-let map = null, mapcv = null, leafletP = null, tiles = null;
+let map = null, mapcv = null, leafletP = null, tiles = null, tilesLabels = null;
 function setTiles() {
   if (!map || EMBED) return;
   if (tiles) map.removeLayer(tiles);
+  if (tilesLabels) { map.removeLayer(tilesLabels); tilesLabels = null; }
   const osm = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+  if (S.sat2d) {
+    tiles = L.tileLayer(ESRI_SAT, { maxZoom: 19, attribution: 'Imagery © <a href="https://www.esri.com">Esri</a>, Vantor, Earthstar Geographics' });
+    map.getContainer().classList.remove("osmdark"); map.getContainer().classList.add("sat2d");
+    tiles.addTo(map);
+    tilesLabels = L.tileLayer(ESRI_LABELS, { maxZoom: 19, opacity: 0.85 }).addTo(map);
+    return;
+  }
+  if (tilesLabels) { map.removeLayer(tilesLabels); tilesLabels = null; }
+  map.getContainer().classList.remove("sat2d");
   if (S.cartoKey) {
     tiles = L.tileLayer("https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=" + encodeURIComponent(S.cartoKey),
       { maxZoom: 18, attribution: osm + ' &copy; <a href="https://carto.com/attributions">CARTO</a>' });
@@ -1841,13 +1856,16 @@ function initMap() {
     st.mapSel = best ? best.hex : null;
   });
 }
+let modeReq = 0;
 async function setMode(m) {
+  const my = ++modeReq; // a newer mode request always wins over a slower, older one
   if (m === "map") {
     try { await loadLeaflet(); initMap(); } catch (e) { toast("Couldn't load the map. Check your internet connection."); m = "ar"; }
   }
   if (m === "3d") {
-    try { await load3d(); await init3d(); } catch (e) { toast("Couldn't start the 3D view (" + (e.message || "WebGL unavailable") + ")."); m = map ? "map" : "ar"; }
+    try { await load3d(); await init3d(); } catch (e) { console.warn("3D init failed:", e && (e.stack || e)); toast("Couldn't start the 3D view (" + (e.message || "WebGL unavailable") + ")."); m = map ? "map" : "ar"; }
   }
+  if (my !== modeReq) return;
   if (m !== "3d") st.follow = false;
   S.mode = m; save();
   document.body.classList.toggle("map", m === "map" || m === "3d");
@@ -1860,7 +1878,7 @@ async function setMode(m) {
   else if (st.camOk) v.play().catch(() => {});
   if (st.started) scheduleFetch();
 }
-document.querySelectorAll("#mode button").forEach(b => b.onclick = () => setMode(b.dataset.m));
+document.querySelectorAll("#mode button").forEach(b => b.onclick = () => { st.modeTouched = true; setMode(b.dataset.m); });
 
 function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 
@@ -2148,27 +2166,39 @@ function load3d() {
   return ml3dP;
 }
 const BLANK_STYLE = { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#0a1120" } }] };
+// ---- basemaps for the 3D view ----
+const ESRI_SAT = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const ESRI_LABELS = "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
+const AWS_DEM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+const SAT_ATTR = 'Imagery © <a href="https://www.esri.com">Esri</a>, Vantor, Earthstar Geographics · Terrain: AWS Terrain Tiles';
+function satStyle() {
+  return { version: 8,
+    sources: {
+      sat: { type: "raster", tiles: [ESRI_SAT], tileSize: 256, maxzoom: 19, attribution: SAT_ATTR },
+      labels: { type: "raster", tiles: [ESRI_LABELS], tileSize: 256, maxzoom: 19 },
+      dem: { type: "raster-dem", tiles: [AWS_DEM], tileSize: 256, maxzoom: 15, encoding: "terrarium" } },
+    layers: [
+      { id: "bg", type: "background", paint: { "background-color": "#0a1120" } },
+      { id: "sat", type: "raster", source: "sat", paint: { "raster-brightness-max": 0.85, "raster-saturation": -0.05, "raster-contrast": 0.05 } },
+      { id: "labels", type: "raster", source: "labels", paint: { "raster-opacity": 0.85 } }] };
+}
+let darkStyleCache = null;
+async function style3d() {
+  if (EMBED) return BLANK_STYLE;
+  if (S.sat3d !== false) return satStyle();
+  if (!darkStyleCache) { try { const r = await fetchJSON("https://tiles.openfreemap.org/styles/dark", 6000); if (r && r.layers) darkStyleCache = r; } catch (e) {} }
+  return darkStyleCache || BLANK_STYLE;
+}
 async function init3d() {
   if (map3d) return;
   const o = observer() || { lat: 12.9716, lon: 77.5946 };
-  let style = BLANK_STYLE;
-  if (!EMBED) { // free dark basemap, no key; fall back to a plain dark ground if it can't load
-    try { const r = await fetchJSON("https://tiles.openfreemap.org/styles/dark", 6000); if (r && r.layers) style = r; } catch (e) {}
-  }
-  map3d = new maplibregl.Map({ container: "map3d", style, center: [o.lon, o.lat], zoom: 9.3, pitch: 60, bearing: -20, maxPitch: 80,
+  const style = await style3d();
+  map3d = new maplibregl.Map({ container: "map3d", style, center: [o.lon, o.lat], zoom: 9.3, pitch: 62, bearing: -20, maxPitch: 82,
     attributionControl: false, antialias: true, fadeDuration: 0 });
-  map3d.addControl(new maplibregl.AttributionControl({ compact: false, customAttribution: style === BLANK_STYLE ? "" : '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }), "bottom-right");
-  await new Promise(res => map3d.once("load", res));
-  const empty = { type: "FeatureCollection", features: [] };
-  for (const id of ["rings", "me", "trail", "sticks", "shadows", "planes", "path"]) map3d.addSource(id, { type: "geojson", data: empty });
-  if (style === BLANK_STYLE) map3d.addSource("grid", { type: "geojson", data: gridFC(o) }), map3d.addLayer({ id: "grid", type: "line", source: "grid", paint: { "line-color": "rgba(120,150,200,.10)", "line-width": 1 } });
-  map3d.addLayer({ id: "rings", type: "line", source: "rings", paint: { "line-color": "rgba(92,225,230,.35)", "line-width": 1.2, "line-dasharray": [2, 3] } });
-  map3d.addLayer({ id: "shadows", type: "fill", source: "shadows", paint: { "fill-color": "#000", "fill-opacity": 0.35 } });
-  map3d.addLayer({ id: "path", type: "line", source: "path", paint: { "line-color": "#9ef01a", "line-width": 2, "line-dasharray": [1, 3], "line-opacity": 0.8 } });
-  map3d.addLayer({ id: "me", type: "circle", source: "me", paint: { "circle-radius": 7, "circle-color": "#2f8cff", "circle-stroke-color": "#fff", "circle-stroke-width": 2.5, "circle-pitch-alignment": "map" } });
-  map3d.addLayer({ id: "trail", type: "fill-extrusion", source: "trail", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": 0, "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.32 } });
-  map3d.addLayer({ id: "sticks", type: "fill-extrusion", source: "sticks", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": 0, "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.45 } });
-  map3d.addLayer({ id: "planes", type: "fill-extrusion", source: "planes", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.95 } });
+  map3d.addControl(new maplibregl.AttributionControl({ compact: false, customAttribution: '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }), "bottom-right");
+  map3d.on("style.load", () => add3dLayers(style3dIsSat()));
+  await new Promise(res => { if (map3d.isStyleLoaded()) return res(); map3d.once("style.load", res); map3d.once("load", res); setTimeout(res, 8000); });
+  if (!map3d.getSource("planes")) add3dLayers(style3dIsSat());
   map3d.on("click", e => {
     const f = map3d.queryRenderedFeatures([[e.point.x - 14, e.point.y - 14], [e.point.x + 14, e.point.y + 14]], { layers: ["planes", "sticks"] });
     st.mapSel = f.length ? f[0].properties.hex : null;
@@ -2181,6 +2211,36 @@ async function init3d() {
     const el = document.createElement("div"); el.className = "ap3d"; el.innerHTML = "<i></i>" + code;
     return new maplibregl.Marker({ element: el, anchor: "left" }).setLngLat([lo, la]).addTo(map3d);
   });
+}
+const style3dIsSat = () => !EMBED && S.sat3d !== false;
+// (re)add SkyFlight's own layers: needed after every style change
+function add3dLayers(sat) {
+  if (!map3d || map3d.getSource("planes")) return;
+  const o = observer() || { lat: 12.9716, lon: 77.5946 }, empty = { type: "FeatureCollection", features: [] };
+  for (const id of ["rings", "me", "trail", "sticks", "shadows", "planes", "path"]) map3d.addSource(id, { type: "geojson", data: empty });
+  if (!map3d.getSource("sat") && !map3d.getStyle().sources.openmaptiles) {
+    map3d.addSource("grid", { type: "geojson", data: gridFC(o) });
+    map3d.addLayer({ id: "grid", type: "line", source: "grid", paint: { "line-color": "rgba(120,150,200,.10)", "line-width": 1 } });
+  }
+  map3d.addLayer({ id: "rings", type: "line", source: "rings", paint: { "line-color": sat ? "rgba(92,225,230,.7)" : "rgba(92,225,230,.35)", "line-width": 1.4, "line-dasharray": [2, 3] } });
+  map3d.addLayer({ id: "shadows", type: "fill", source: "shadows", paint: { "fill-color": "#000", "fill-opacity": sat ? 0.5 : 0.35 } });
+  map3d.addLayer({ id: "path", type: "line", source: "path", paint: { "line-color": "#9ef01a", "line-width": 2.5, "line-dasharray": [1, 3], "line-opacity": 0.9 } });
+  map3d.addLayer({ id: "me", type: "circle", source: "me", paint: { "circle-radius": 7, "circle-color": "#2f8cff", "circle-stroke-color": "#fff", "circle-stroke-width": 2.5, "circle-pitch-alignment": "map" } });
+  map3d.addLayer({ id: "trail", type: "fill-extrusion", source: "trail", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": 0, "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.35 } });
+  map3d.addLayer({ id: "sticks", type: "fill-extrusion", source: "sticks", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": 0, "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": sat ? 0.6 : 0.45 } });
+  map3d.addLayer({ id: "planes", type: "fill-extrusion", source: "planes", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.97 } });
+  // real terrain (hills, valleys, coastlines) under the satellite imagery, plus a sky with haze at the horizon
+  try { if (sat && map3d.getSource("dem")) map3d.setTerrain({ source: "dem", exaggeration: 1.3 }); else map3d.setTerrain(null); } catch (e) {}
+  try { map3d.setSky({ "sky-color": "#0d2347", "horizon-color": sat ? "#6d8fb8" : "#1b2c4a", "fog-color": sat ? "#3f5f88" : "#0a1120",
+    "sky-horizon-blend": 0.5, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.3, "atmosphere-blend": 0.6 }); } catch (e) {}
+  last3d = 0;
+}
+async function set3dBasemap(sat) {
+  S.sat3d = sat; save();
+  if (!map3d) return;
+  const next = await style3d();
+  try { map3d.setTerrain(null); } catch (e) {}  // drop terrain before swapping styles
+  map3d.setStyle(next, { diff: false });          // our layers come back via the style.load handler
 }
 function gridFC(o) {
   const f = [], step = 0.1, la0 = Math.round(o.lat), lo0 = Math.round(o.lon);
@@ -2258,6 +2318,11 @@ function draw3d(items, now, sel) {
   }
   const showAp = z >= 6; ap3dMarkers.forEach(m => { m.getElement().style.display = showAp ? "" : "none"; });
 }
+$("#m-layers").onclick = () => {
+  if (EMBED) return toast("Satellite imagery loads in the hosted app (this preview can't fetch map images).");
+  if (S.mode === "3d") { const on = S.sat3d === false; set3dBasemap(on); toast(on ? "Satellite + 3D terrain" : "Dark map"); }
+  else { S.sat2d = !S.sat2d; save(); setTiles(); toast(S.sat2d ? "Satellite map" : "Dark map"); }
+};
 $("#follow").onclick = () => {
   if (!st.mapSel) return toast("Tap a plane first, then press follow.");
   st.follow = !st.follow; $("#follow").classList.toggle("on", st.follow);
@@ -2415,7 +2480,7 @@ async function start(demo) {
   } catch (e) { toast("Camera unavailable, so showing a plain sky."); }
   startGeo();
   loadLeaflet().catch(() => {});
-  setMode(S.mode);
+  if (!st.modeTouched) setMode(S.mode);
   try { if (navigator.wakeLock) await navigator.wakeLock.request("screen"); } catch (e) {}
   poll(); requestAnimationFrame(frame);
 }
@@ -2428,7 +2493,7 @@ if (EMBED) {
 $("#go").onclick = () => start(false);
 $("#go-demo").onclick = () => start(true);
 
-window.__sky = { st, S, enu }; window.__map = () => map;
+window.__sky = { st, S, enu }; window.__map = () => map; window.__map3d = () => map3d;
 </script>
 </body>
 </html>

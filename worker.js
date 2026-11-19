@@ -10,6 +10,7 @@
 //   POST /api/route                                  route lookup (forwarded to adsb.lol routeset)
 //   GET  /api/callsign/IGO6123                       origin/destination airports (adsbdb, free)
 //   GET  /api/flight?ident=IGO6123                   scheduled/actual times (FlightAware AeroAPI)
+//   GET  /api/trace?hex=800abc                       full flown track of the current flight (community ADS-B traces)
 //
 // Schedule times need a FlightAware AeroAPI key (Personal tier has a free monthly allowance):
 //   Cloudflare dashboard → Workers & Pages → skyflight → Settings → Variables and Secrets
@@ -39,6 +40,7 @@ export default {
     const isRoute = (u.pathname === "/api/route" || u.pathname === "/route") && request.method === "POST";
     if (u.pathname.startsWith("/api/callsign/")) return callsign(u.pathname.slice(14));
     if (u.pathname === "/api/flight") return flight(u.searchParams.get("ident") || "", env);
+    if (u.pathname === "/api/trace") return trace(u.searchParams.get("hex") || "");
     if (!isAircraft && !isRoute) {
       if (env && env.ASSETS) return env.ASSETS.fetch(request); // the app itself
       return json({ ok: true, usage: "GET /api/aircraft?lat=12.97&lon=77.59&dist=40" });
@@ -119,5 +121,70 @@ async function flight(ident, env) {
   };
   const body = JSON.stringify(out);
   await cache.put(key, new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=600" } }));
+  return new Response(body, { headers: { ...CORS, "Content-Type": "application/json" } });
+}
+
+// ---------- full flown track for one aircraft ----------
+// readsb/tar1090 trace files: { timestamp, trace: [[dt, lat, lon, alt_ft|"ground", gs, track, flags, vrate, ...], ...] }
+const TRACE_HOSTS = [["https://globe.adsb.lol", "adsb.lol"], ["https://globe.airplanes.live", "airplanes.live"], ["https://globe.adsb.fi", "adsb.fi"]];
+async function readJsonMaybeGzip(r) {
+  const buf = new Uint8Array(await r.arrayBuffer());
+  if (buf[0] === 0x1f && buf[1] === 0x8b) {
+    const txt = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+    return JSON.parse(txt);
+  }
+  return JSON.parse(new TextDecoder().decode(buf));
+}
+function tracePoints(j) {
+  if (!j || !Array.isArray(j.trace)) return [];
+  const t0 = j.timestamp || 0;
+  return j.trace.filter(e => typeof e[1] === "number" && typeof e[2] === "number")
+    .map(e => [t0 + e[0], +e[1].toFixed(5), +e[2].toFixed(5), e[3] === "ground" ? 0 : (typeof e[3] === "number" ? e[3] : null), e[6] || 0, e[3] === "ground"]);
+}
+async function trace(hex) {
+  hex = hex.toLowerCase().replace(/[^0-9a-f]/g, "").slice(0, 6);
+  if (hex.length !== 6) return json({ error: "hex required" }, 400);
+  const cache = caches.default, key = new Request("https://cache.skyflight.internal/trace/" + hex);
+  const hit = await cache.match(key);
+  if (hit) return new Response(hit.body, { headers: { ...CORS, "Content-Type": "application/json" } });
+  let pts = [], source = null;
+  for (const [host, name] of TRACE_HOSTS) {
+    const got = [];
+    for (const kind of ["full", "recent"]) {
+      try {
+        const r = await fetch(`${host}/data/traces/${hex.slice(-2)}/trace_${kind}_${hex}.json`,
+          { headers: { ...UA, Referer: host + "/", Accept: "application/json" }, cf: { cacheTtl: 30 } });
+        if (r.ok) got.push(...tracePoints(await readJsonMaybeGzip(r)));
+      } catch (e) {}
+    }
+    if (got.length) { pts = got; source = name; break; }
+  }
+  if (!pts.length) { // last resort: OpenSky track of the current flight
+    try {
+      const r = await fetch("https://opensky-network.org/api/tracks/all?icao24=" + hex + "&time=0", { headers: UA });
+      if (r.ok) {
+        const j = await r.json();
+        pts = (j.path || []).map(e => [e[0], e[1], e[2], e[5] ? 0 : (e[3] != null ? Math.round(e[3] / 0.3048) : null), 0, !!e[5]]);
+        source = "opensky";
+      }
+    } catch (e) {}
+  }
+  if (!pts.length) return json({ error: "no_trace" }, 404);
+  // de-duplicate, sort, keep only the current flight (since the last take-off / new-leg marker / long gap)
+  pts.sort((a, b) => a[0] - b[0]);
+  pts = pts.filter((p, i) => i === 0 || p[0] !== pts[i - 1][0]);
+  let start = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const gap = pts[i][0] - pts[i - 1][0];
+    if ((pts[i][4] & 2) || gap > 25 * 60 || (pts[i - 1][5] && !pts[i][5])) start = i;
+  }
+  // include the take-off roll if the leg began on the ground
+  if (start > 0 && pts[start - 1][5] && pts[start][0] - pts[start - 1][0] < 600) start--;
+  let leg = pts.slice(start).filter(p => !p[5] || p === pts[start]);
+  // thin out to at most ~700 points
+  const step = Math.ceil(leg.length / 700);
+  if (step > 1) leg = leg.filter((p, i) => i % step === 0 || i === leg.length - 1);
+  const body = JSON.stringify({ source, points: leg.map(p => [p[0], p[1], p[2], p[3]]) });
+  await cache.put(key, new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=45" } }));
   return new Response(body, { headers: { ...CORS, "Content-Type": "application/json" } });
 }

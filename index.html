@@ -1011,8 +1011,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
     <div class="field live-only">
       <div class="lbl">Proxy URL</div>
-      <input type="text" id="s-proxy" placeholder="https://…workers.dev/?lat={lat}&lon={lon}&dist={dist}">
-      <div class="hint">Needed on most browsers: the flight APIs block direct requests from web pages. Deploy worker.js (free Cloudflare Worker) and paste its URL here.</div>
+      <input type="text" id="s-proxy" placeholder="https://skyflight.yourname.workers.dev">
+      <div class="hint">Not needed when you open the app from its workers.dev address. On GitHub Pages, paste your workers.dev address here so the app can get flight data.</div>
     </div>
     <div class="field">
       <div class="lbl">"Overhead" means within <b id="v-over"></b></div>
@@ -1235,12 +1235,16 @@ async function fetchOnce() {
     let order;
     if (S.source === "proxy" && S.proxy) order = ["proxy"];
     else if (S.source !== "auto" && SOURCES[S.source]) order = [S.source];
-    else { order = Object.keys(SOURCES); if (st.source && SOURCES[st.source]) order = [st.source, ...order.filter(k => k !== st.source)]; if (S.proxy) order = ["proxy", ...order]; }
+    else { order = Object.keys(SOURCES); if (st.source && SOURCES[st.source]) order = [st.source, ...order.filter(k => k !== st.source)]; if (S.proxy) order = ["proxy", ...order]; if (!st.noSameOrigin) order = ["same", ...order]; }
     let ok = false, lastErr = null;
     for (const src of order) {
-      const url = src === "proxy" ? S.proxy.replace("{lat}", la).replace("{lon}", lo).replace("{dist}", r) : SOURCES[src](la, lo, r);
+      const url = src === "same" ? `/api/aircraft?lat=${la}&lon=${lo}&dist=${r}`
+        : src === "proxy" ? S.proxy.replace("{lat}", la).replace("{lon}", lo).replace("{dist}", r) : SOURCES[src](la, lo, r);
       try { ingest(await fetchJSON(url), Date.now()); st.source = src; st.fetchErr = null; ok = true; break; }
-      catch (e) { lastErr = src + ": " + (e.name === "AbortError" ? "timeout" : (e.message || "blocked")); }
+      catch (e) {
+        if (src === "same") { st.noSameOrigin = true; continue; } // not hosted on Cloudflare: skip from now on
+        lastErr = src + ": " + (e.name === "AbortError" ? "timeout" : (e.message || "blocked"));
+      }
     }
     if (!ok) st.fetchErr = lastErr || "no source";
   } finally { st.fetching = false; }
@@ -1277,7 +1281,7 @@ async function lookupRoute(p) {
   routePending.add(p.flight);
   let res = { ok: false, note: "Route not in the free database. Try the links below." };
   try {
-    const routeUrl = S.proxy ? new URL("/route", S.proxy).href : "https://api.adsb.lol/api/0/routeset";
+    const routeUrl = st.source === "same" ? "/api/route" : S.proxy ? new URL("/api/route", S.proxy).href : "https://api.adsb.lol/api/0/routeset";
     const j = await fetchJSON(routeUrl, 6000, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ planes: [{ callsign: p.flight, lat: p.lat, lng: p.lon }] }) });
     const x = Array.isArray(j) ? j[0] : null;
@@ -1523,7 +1527,7 @@ function renderTop(o, n, hdg, pitch) {
 
   let note = "";
   if (!S.demo && st.posErr === "denied" && !parseManualLoc()) note = "Location is off. Allow it in your browser settings, or set a manual location in ⚙︎.";
-  else if (!S.demo && st.fetchErr && age > 20) note = S.proxy ? "Your proxy isn't responding (" + st.fetchErr + "). Check the Proxy URL in ⚙︎." : "Flight APIs block direct requests from browsers. Set up the free proxy (worker.js) and paste its URL in ⚙︎ → Proxy URL.";
+  else if (!S.demo && st.fetchErr && age > 20) note = S.proxy ? "Your proxy isn't responding (" + st.fetchErr + "). Check the Proxy URL in ⚙︎." : "Flight APIs block direct requests from browsers. Open the app from your workers.dev address, or paste that address in ⚙︎ → Proxy URL.";
   else if (S.mode === "map") note = "";
   else if (!haveOri()) note = EMBED ? "Drag to look around the sky." : "No motion sensors detected. Drag to look around.";
   else if (!st.gotAbsolute) note = "Compass isn't north-referenced on this browser. Use compass correction in ⚙︎.";
@@ -1903,7 +1907,7 @@ $("#s-alert").onchange = e => { S.alert = e.target.checked; save(); };
 $("#s-src").onchange = e => { S.source = e.target.value; save(); st.planes.clear(); };
 $("#s-proxy").onchange = e => {
   let v = e.target.value.trim();
-  if (v && !v.includes("{lat}")) v = v.replace(/\/?$/, "/") + "?lat={lat}&lon={lon}&dist={dist}"; // accept a bare worker URL
+  if (v && !v.includes("{lat}")) { try { v = new URL(v).origin + "/api/aircraft?lat={lat}&lon={lon}&dist={dist}"; } catch (err) {} } // accept a bare worker URL
   S.proxy = v; e.target.value = v; save(); st.fetchErr = null; st.lastReq = 0; scheduleFetch();
 };
 $("#s-carto").onchange = e => { S.cartoKey = e.target.value.trim(); save(); setTiles(); };

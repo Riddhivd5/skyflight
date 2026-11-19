@@ -1,0 +1,14 @@
+{
+  // SkyFlight on Cloudflare: serves index.html as a static site and runs worker.js for /api/* (flight data proxy).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "skyflight",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-18",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  }
+}

@@ -1,16 +1,14 @@
 // SkyFlight proxy: a free Cloudflare Worker that fetches flight data for the app.
 // Needed because the free ADS-B APIs don't allow direct requests from web pages (CORS).
 //
-// Deploy (works from a phone browser):
-//   1. dash.cloudflare.com → sign up / log in (free plan is plenty)
-//   2. Workers & Pages → Create → Create Worker → name it e.g. "skyflight" → Deploy
-//   3. Edit code → delete everything → paste this whole file → Deploy
-//   4. Copy the worker URL, e.g. https://skyflight.<you>.workers.dev
-//   5. In SkyFlight: ⚙︎ → Proxy URL → paste it (the app adds the rest)
+// Deployed from the GitHub repo together with wrangler.jsonc: Cloudflare then serves
+// index.html as the app AND runs this file for the API paths below (same origin, no setup).
+// Also works pasted on its own into a Cloudflare Worker (then use it as the Proxy URL).
 //
 // Endpoints:
-//   GET  /?lat=12.97&lon=77.59&dist=40   aircraft near a point (dist in NM, max 250)
-//   POST /route                           route lookup (forwarded to adsb.lol routeset)
+//   GET  /api/aircraft?lat=12.97&lon=77.59&dist=40   aircraft near a point (dist in NM, max 250)
+//   POST /api/route                                  route lookup (forwarded to adsb.lol routeset)
+//   GET  /?lat=..&lon=..&dist=..                     same as /api/aircraft (stand-alone worker)
 
 const UPSTREAMS = [
   (la, lo, r) => `https://api.airplanes.live/v2/point/${la}/${lo}/${r}`,
@@ -28,12 +26,18 @@ const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
     const u = new URL(request.url);
+    const isAircraft = u.pathname === "/api/aircraft" || (u.pathname === "/" && u.searchParams.has("lat"));
+    const isRoute = (u.pathname === "/api/route" || u.pathname === "/route") && request.method === "POST";
+    if (!isAircraft && !isRoute) {
+      if (env && env.ASSETS) return env.ASSETS.fetch(request); // the app itself
+      return json({ ok: true, usage: "GET /api/aircraft?lat=12.97&lon=77.59&dist=40" });
+    }
 
     // Route lookup
-    if (u.pathname === "/route" && request.method === "POST") {
+    if (isRoute) {
       try {
         const body = await request.text();
         if (body.length > 5000) return json({ error: "too large" }, 413);
@@ -47,7 +51,7 @@ export default {
     }
 
     // Aircraft near a point
-    if (!u.searchParams.has("lat") || !u.searchParams.has("lon")) return json({ ok: true, usage: "GET /?lat=12.97&lon=77.59&dist=40" });
+    if (!u.searchParams.has("lat") || !u.searchParams.has("lon")) return json({ error: "lat and lon required" }, 400);
     const lat = Number(u.searchParams.get("lat"));
     const lon = Number(u.searchParams.get("lon"));
     const dist = Math.min(250, Math.max(1, Number(u.searchParams.get("dist")) || 40));

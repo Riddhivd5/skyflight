@@ -11,6 +11,7 @@
 //   GET  /api/callsign/IGO6123                       origin/destination airports (adsbdb, free)
 //   GET  /api/flight?ident=IGO6123                   scheduled/actual times (FlightAware AeroAPI)
 //   GET  /api/trace?hex=800abc                       full flown track of the current flight (community ADS-B traces)
+//   GET  /api/place?lat=12.97&lon=77.59              city name for the start screen (OpenStreetMap Nominatim)
 //
 // Schedule times need a FlightAware AeroAPI key (Personal tier has a free monthly allowance):
 //   Cloudflare dashboard → Workers & Pages → skyflight → Settings → Variables and Secrets
@@ -41,6 +42,7 @@ export default {
     if (u.pathname.startsWith("/api/callsign/")) return callsign(u.pathname.slice(14));
     if (u.pathname === "/api/flight") return flight(u.searchParams.get("ident") || "", env);
     if (u.pathname === "/api/trace") return trace(u.searchParams.get("hex") || "");
+    if (u.pathname === "/api/place") return place(u.searchParams.get("lat"), u.searchParams.get("lon"));
     if (!isAircraft && !isRoute) {
       if (env && env.ASSETS) return env.ASSETS.fetch(request); // the app itself
       return json({ ok: true, usage: "GET /api/aircraft?lat=12.97&lon=77.59&dist=40" });
@@ -187,4 +189,23 @@ async function trace(hex) {
   const body = JSON.stringify({ source, points: leg.map(p => [p[0], p[1], p[2], p[3]]) });
   await cache.put(key, new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=45" } }));
   return new Response(body, { headers: { ...CORS, "Content-Type": "application/json" } });
+}
+
+// ---------- city name for a location (cached a day; ~1 km grid so nearby users share it) ----------
+async function place(lat, lon) {
+  lat = Number(lat); lon = Number(lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json({ error: "lat/lon required" }, 400);
+  const la = lat.toFixed(2), lo = lon.toFixed(2);
+  const cache = caches.default, key = new Request("https://cache.skyflight.internal/place/" + la + "," + lo);
+  const hit = await cache.match(key);
+  if (hit) return new Response(hit.body, { headers: { ...CORS, "Content-Type": "application/json" } });
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=en&lat=${la}&lon=${lo}`,
+      { headers: { "User-Agent": "SkyFlight/1.0 (personal flight-spotting app)" } });
+    const j = await r.json(), a = j.address || {};
+    const name = a.city || a.town || a.municipality || a.county || a.state_district || a.state || null;
+    const body = JSON.stringify({ name });
+    await cache.put(key, new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=86400" } }));
+    return new Response(body, { headers: { ...CORS, "Content-Type": "application/json" } });
+  } catch (e) { return json({ name: null }, 200); }
 }

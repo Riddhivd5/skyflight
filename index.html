@@ -844,6 +844,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .bigroute .ap{font:700 26px var(--disp)} .bigroute .apn{font:500 11px var(--mono);color:var(--muted);max-width:120px}
   .bigroute .mid{flex:1;margin:0 10px;border-top:1.5px dashed rgba(255,255,255,.25);position:relative}
   .bigroute .mid svg{position:absolute;left:50%;top:-10px;margin-left:-9px;width:18px;height:18px;color:var(--lock);background:#111a28}
+  .itin{margin:16px 0 4px;padding:14px 14px 12px;border-radius:16px;background:#111a28}
+  .itin .ends{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start}
+  .itin .end.r{text-align:right}
+  .itin .ap{font:700 30px/1 var(--disp)}
+  .itin .city{font:600 13px system-ui,sans-serif;margin-top:4px}
+  .itin .apn{font:500 10.5px/1.3 var(--mono);color:var(--muted);margin-top:2px}
+  .itin .mid{align-self:center;color:var(--lock);padding-top:6px}
+  .itin .mid svg{width:20px;height:20px;transform:rotate(90deg)}
+  .itin .prog{position:relative;height:4px;border-radius:2px;background:#26324a;margin:14px 2px 12px}
+  .itin .prog i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:linear-gradient(90deg,#5ce1e6,#9ef01a)}
+  .itin .prog b{position:absolute;top:-8px;width:20px;height:20px;margin-left:-10px;color:var(--lock)}
+  .itin .prog b svg{width:20px;height:20px;transform:rotate(90deg)}
+  .itin .times{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .itin .tcol.r{text-align:right}
+  .itin .trow{margin-top:6px}
+  .itin .tl{font:600 9.5px var(--mono);letter-spacing:1.1px;text-transform:uppercase;color:var(--muted)}
+  .itin .tv{font:700 19px var(--disp)} .itin .tv small{font:500 10.5px var(--mono);color:var(--muted);margin-left:4px}
+  .itin .tv.est{color:var(--cyan)} .itin .tv.late{color:var(--coral)} .itin .tv.ok{color:var(--green)}
+  .itin .status{margin-top:10px;font:600 12px var(--mono);color:#c4cddb;text-align:center}
   .routenote{font:500 12px var(--mono);color:var(--muted);margin:10px 2px 0}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin:14px 0;border-radius:16px;overflow:hidden;background:var(--line)}
   .grid div{background:#111a28;padding:10px 12px;font:600 15px var(--disp)}
@@ -894,6 +913,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .cta{display:flex;flex-direction:column;gap:10px;margin:22px auto 0;max-width:420px;width:100%}
   .cta .btn{padding:15px;font-size:16px;border-radius:14px}
   #secure-warn{max-width:420px;margin:14px auto 0;font-size:12.5px;color:#ffe2b0;text-align:center}
+  body.sheet-open #toast{top:calc(var(--safe-t) + 12px)}
   #toast{position:fixed;left:50%;top:calc(var(--safe-t) + 230px);transform:translateX(-50%);max-width:88%;padding:10px 14px;border-radius:12px;
     font:500 13px system-ui,sans-serif;z-index:40;pointer-events:none;transition:opacity .3s;text-align:center}
 </style>
@@ -1276,24 +1296,75 @@ function ingest(j, now) {
 
 /* ---------------- routes ---------------- */
 const routeCache = new Map(), routePending = new Set();
+function apiUrl(path) {
+  if (st.source === "same") return path;
+  if (S.proxy) { try { return new URL(path, S.proxy).href; } catch (e) {} }
+  return null;
+}
 async function lookupRoute(p) {
   if (!p.flight || p.demo || routeCache.has(p.flight) || routePending.has(p.flight)) return;
   routePending.add(p.flight);
-  let res = { ok: false, note: "Route not in the free database. Try the links below." };
+  let res = { ok: false, note: "Route not in the free databases. Try the links below." };
+  // 1) adsbdb: origin/destination with names, cities and coordinates
   try {
-    const routeUrl = st.source === "same" ? "/api/route" : S.proxy ? new URL("/api/route", S.proxy).href : "https://api.adsb.lol/api/0/routeset";
+    const u = apiUrl("/api/callsign/" + encodeURIComponent(p.flight)) || "https://api.adsbdb.com/v0/callsign/" + encodeURIComponent(p.flight);
+    const j = await fetchJSON(u, 6000), fr = j && j.response && j.response.flightroute;
+    if (fr && fr.origin && fr.destination) {
+      const A = a => ({ code: a.iata_code || a.icao_code, name: a.name || "", city: a.municipality || "", lat: a.latitude, lon: a.longitude });
+      const o = A(fr.origin), d = A(fr.destination);
+      res = { ok: true, from: o.code, to: d.code, fromName: o.city, toName: d.city, fromAp: o, toAp: d, note: "" };
+    }
+  } catch (e) {}
+  // 2) adsb.lol routeset as a fallback
+  if (!res.ok) try {
+    const routeUrl = apiUrl("/api/route") || "https://api.adsb.lol/api/0/routeset";
     const j = await fetchJSON(routeUrl, 6000, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ planes: [{ callsign: p.flight, lat: p.lat, lng: p.lon }] }) });
     const x = Array.isArray(j) ? j[0] : null;
     if (x && x._airport_codes_iata && x._airport_codes_iata !== "unknown") {
-      const codes = x._airport_codes_iata.split("-");
-      const names = Array.isArray(x._airports) ? x._airports.map(a => a.location || a.name || "") : [];
-      res = { ok: true, from: codes[0], to: codes[codes.length - 1], fromName: names[0] || "", toName: names[names.length - 1] || "",
+      const codes = x._airport_codes_iata.split("-"), aps = Array.isArray(x._airports) ? x._airports : [];
+      const A = (a, c) => a ? { code: c, name: a.name || "", city: a.location || "", lat: a.lat, lon: a.lon } : { code: c, name: "", city: "" };
+      const o = A(aps[0], codes[0]), d = A(aps[aps.length - 1], codes[codes.length - 1]);
+      res = { ok: true, from: o.code, to: d.code, fromName: o.city, toName: d.city, fromAp: o, toAp: d,
               note: x.plausible === false ? "Route not verified for this flight today." : "" };
     }
-  } catch (e) { res = { ok: false, note: "Couldn't reach the route service from this browser." }; }
+  } catch (e) { if (!res.ok) res.note = "Couldn't reach the route services from this browser."; }
   routeCache.set(p.flight, res); routePending.delete(p.flight);
   if (st.selectedHex === p.hex) renderDetailRoute(p);
+}
+// ---------- schedule & actual times ----------
+const timesCache = new Map(), timesPending = new Set();
+async function lookupTimes(p) {
+  if (!p.flight || p.demo || timesCache.has(p.flight) || timesPending.has(p.flight)) return;
+  const u = apiUrl("/api/flight?ident=" + encodeURIComponent(p.flight));
+  if (!u) { timesCache.set(p.flight, { err: "noproxy" }); return; }
+  timesPending.add(p.flight);
+  let res;
+  try {
+    const r = await fetch(u, { cache: "no-store" });
+    if (r.status === 501) res = { err: "nokey" };
+    else if (r.status === 404) res = { err: "notfound" };
+    else if (!r.ok) res = { err: "fail" };
+    else res = await r.json();
+  } catch (e) { res = { err: "fail" }; }
+  timesCache.set(p.flight, res); timesPending.delete(p.flight);
+  if (st.selectedHex === p.hex) renderDetailRoute(p);
+}
+function fmtClock(iso, tz) {
+  if (!iso) return null;
+  const d = new Date(iso); if (isNaN(d)) return null;
+  const o = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+  try {
+    const parts = new Intl.DateTimeFormat("en-IN", { ...o, timeZone: tz || undefined, timeZoneName: "short" }).formatToParts(d);
+    const hm = parts.filter(x => x.type === "hour" || x.type === "minute").map(x => x.value).join(":");
+    const z = (parts.find(x => x.type === "timeZoneName") || {}).value || "";
+    return { hm, z };
+  } catch (e) { return { hm: d.toTimeString().slice(0, 5), z: "" }; }
+}
+function gcKm(a1, o1, a2, o2) {
+  const R = 6371, dA = (a2 - a1) * DEG, dO = (o2 - o1) * DEG;
+  const h = Math.sin(dA / 2) ** 2 + Math.cos(a1 * DEG) * Math.cos(a2 * DEG) * Math.sin(dO / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
 }
 const routeOf = p => p.demo ? p.route : routeCache.get(p.flight);
 
@@ -1304,6 +1375,23 @@ const DEMO = [
   ["SIA511","A359","9V-SMF",["SIN","BLR","Singapore","Bengaluru"]], ["IGO2341","A321","VT-IUK",["MAA","GOI","Chennai","Goa"]],
   ["QTR4AN","A35K","A7-ANB",["DOH","BLR","Doha","Bengaluru"]], ["AXB813","B738","VT-AXJ",["COK","BLR","Kochi","Bengaluru"]]
 ];
+const DEMO_AP = { DXB: ["Dubai", "Dubai International Airport", 25.2532, 55.3657, "Asia/Dubai"], SIN: ["Singapore", "Singapore Changi Airport", 1.3644, 103.9915, "Asia/Singapore"],
+  DOH: ["Doha", "Hamad International Airport", 25.2731, 51.6081, "Asia/Qatar"] };
+function apInfo(code) {
+  const a = AIRPORTS.find(x => x[0] === code);
+  const NAMES = { BLR: "Kempegowda International Airport", DEL: "Indira Gandhi International Airport", BOM: "Chhatrapati Shivaji Maharaj International Airport",
+    MAA: "Chennai International Airport", HYD: "Rajiv Gandhi International Airport", CCU: "Netaji Subhas Chandra Bose International Airport", COK: "Cochin International Airport" };
+  if (a) return { code, city: a[1], name: NAMES[code] || a[1] + " Airport", lat: a[2], lon: a[3], tz: "Asia/Kolkata" };
+  const b = DEMO_AP[code]; return b ? { code, city: b[0], name: b[1], lat: b[2], lon: b[3], tz: b[4] } : { code, city: code, name: "" };
+}
+function demoRoute(f, t) { const o = apInfo(f), d = apInfo(t); return { ok: true, from: f, to: t, fromName: o.city, toName: d.city, fromAp: o, toAp: d, note: "" }; }
+function demoTimes(f, t, i) {
+  const o = apInfo(f), d = apInfo(t), now = Date.now(), dur = (o.lat != null && d.lat != null ? gcKm(o.lat, o.lon, d.lat, d.lon) / 780 * 60 + 25 : 120) * 60e3;
+  const late = [0, 22, 5, 0, 41, 0, 12, 0][i % 8] * 60e3, sOut = now - dur * (0.3 + (i % 5) * 0.12) - late, iso = x => new Date(x).toISOString();
+  return { status: "En Route", origin: { tz: o.tz }, destination: { tz: d.tz },
+    dep: { scheduled: iso(sOut), actual: iso(sOut + late + 8 * 60e3), takeoff: iso(sOut + late + 22 * 60e3) },
+    arr: { scheduled: iso(sOut + dur), estimated: iso(sOut + dur + late) }, delay_arr_min: Math.round(late / 60e3), delay_dep_min: Math.round((late + 8 * 60e3) / 60e3) };
+}
 function demoTick(o) {
   if (!o) return;
   const now = Date.now();
@@ -1313,7 +1401,7 @@ function demoTick(o) {
     const brg = (i * 47 + 15) % 360, dist = 6000 + (i * 7919 % 38000);
     const [lat, lon] = project(o.lat, o.lon, dist, brg);
     st.planes.set("demo" + i, { hex: "demo" + i, demo: true, flight, type, reg, desc: "", op: "", lat, lon,
-      route: { ok: true, from: r[0], to: r[1], fromName: r[2], toName: r[3], note: "" },
+      route: demoRoute(r[0], r[1]), times: demoTimes(r[0], r[1], i),
       altFt: 3000 + (i * 4513 % 35000), gs: 160 + (i * 41 % 300), track: [1, 4, 6].includes(i) ? (brg + 180 + (i % 2 ? 4 : -6)) % 360 : (brg + 90 + i * 30) % 360, vr: [1800, -1200, 0, 0, -900, 0, 0, 1400][i], squawk: "", t0: now, seen: now });
   });
   // extra traffic further out, so the radar map looks like a real sky
@@ -1326,7 +1414,7 @@ function demoTick(o) {
     const reg = "VT-" + [0, 1, 2].map(() => String.fromCharCode(65 + Math.floor(rnd() * 26))).join("");
     st.planes.set("demox" + i, { hex: "demox" + i, demo: true, flight: AL[i % AL.length] + (100 + Math.floor(rnd() * 8900)),
       type: TY[Math.floor(rnd() * TY.length)], reg, desc: "", op: "", lat, lon, squawk: "", t0: now, seen: now,
-      route: { ok: true, from: AIRPORTS[i1][0], to: AIRPORTS[i2][0], fromName: AIRPORTS[i1][1], toName: AIRPORTS[i2][1], note: "" },
+      route: demoRoute(AIRPORTS[i1][0], AIRPORTS[i2][0]), times: demoTimes(AIRPORTS[i1][0], AIRPORTS[i2][0], i + 20),
       altFt: 8000 + Math.round(rnd() * 310) * 100, gs: 260 + rnd() * 220, track: rnd() * 360, vr: 0 });
   }
   st.lastFetch = now; st.source = "demo";
@@ -1382,7 +1470,7 @@ function frame() {
     renderTop(o, items.length, hdg, pitch);
     renderCard(sel, items, hdg);
     updateOverhead(o, now);
-    if (st.selectedHex) updateDetail(items.find(i => i.p.hex === st.selectedHex));
+    if (st.selectedHex) { updateDetail(items.find(i => i.p.hex === st.selectedHex)); tickDetailRoute(); }
     requestAnimationFrame(frame); return;
   }
   items = items.filter(i => i.ground <= S.radiusNm * 1852 || i.p.hex === st.arTarget);
@@ -1448,7 +1536,7 @@ function frame() {
   renderTop(o, items.length, hdg, pitch);
   renderCard(focus, items, hdg);
   updateOverhead(o, now);
-  if (st.selectedHex) updateDetail(allItems.find(i => i.p.hex === st.selectedHex));
+  if (st.selectedHex) { updateDetail(allItems.find(i => i.p.hex === st.selectedHex)); tickDetailRoute(); }
   requestAnimationFrame(frame);
 }
 
@@ -1534,6 +1622,12 @@ function renderTop(o, n, hdg, pitch) {
   const ne = $("#notice"); if (ne._t !== note) { ne.textContent = note; ne._t = note; ne.hidden = !note; }
 }
 
+function cardEta(p) {
+  const T = p.demo ? p.times : timesCache.get(p.flight), r = routeOf(p);
+  const iso = T && !T.err && T.arr ? (T.arr.actual || T.arr.estimated || T.arr.scheduled) : null;
+  const c = iso ? fmtClock(iso, T.destination && T.destination.tz) : null;
+  return c ? `<b style="color:var(--cyan)">ETA ${c.hm}</b> · ` : "";
+}
 function renderCard(focus, items, hdg) {
   const card = $("#card");
   card.classList.toggle("locked", !!focus);
@@ -1551,7 +1645,7 @@ function renderCard(focus, items, hdg) {
         <div><span class="cap">Dist</span>${(focus.dist / 1000).toFixed(1)}<small>km</small></div>
         <div><span class="cap">V/S</span>${p.vr > 0 ? "+" : ""}${fmt(p.vr)}<small>fpm</small></div>
       </div>
-      <div class="foot"><span><b>${esc(typeName(p.type) || "—")}</b>${p.reg ? " · " + esc(p.reg) : ""}</span><span>Tap for details ›</span></div>`);
+      <div class="foot"><span><b>${esc(typeName(p.type) || "—")}</b>${p.reg ? " · " + esc(p.reg) : ""}</span><span>${cardEta(p)}Tap for details ›</span></div>`);
     card.onclick = () => openDetail(p.hex);
   } else {
     let m, t = "Aim at a plane", go = '<div class="go">Nothing overhead? Tap for the radar map ›</div>';
@@ -1844,8 +1938,8 @@ async function findInSky(hex) {
 }
 
 /* ---------------- details sheet ---------------- */
-function showSheet(id) { $("#scrim").hidden = false; ["detail", "settings", "overhead", "find"].forEach(k => $("#" + k).hidden = id !== k); }
-function closeSheets() { $("#scrim").hidden = true; ["detail", "settings", "overhead", "find"].forEach(k => $("#" + k).hidden = true); st.selectedHex = null; }
+function showSheet(id) { document.body.classList.add("sheet-open"); $("#scrim").hidden = false; ["detail", "settings", "overhead", "find"].forEach(k => $("#" + k).hidden = id !== k); }
+function closeSheets() { document.body.classList.remove("sheet-open"); $("#scrim").hidden = true; ["detail", "settings", "overhead", "find"].forEach(k => $("#" + k).hidden = true); st.selectedHex = null; }
 $("#scrim").onclick = closeSheets;
 
 function openDetail(hex) {
@@ -1865,18 +1959,64 @@ function openDetail(hex) {
   if (S.mode === "map") { sw.textContent = "Find it in the sky (camera)"; sw.onclick = () => findInSky(hex); }
   else { sw.textContent = "Show on radar map"; sw.onclick = () => focusOnMap(hex); }
   $("#d-grid")._h = null;
-  renderDetailRoute(p); lookupRoute(p);
+  renderDetailRoute(p); lookupRoute(p); lookupTimes(p);
 }
 function renderDetailRoute(p) {
   const r = routeOf(p), box = $("#d-route");
-  if (r && r.ok) {
-    box.innerHTML = `<div class="bigroute"><div><div class="ap">${esc(r.from)}</div><div class="apn">${esc(r.fromName)}</div></div>
-      <div class="mid">${PLANE_SVG.replace("<svg", '<svg style="transform:rotate(90deg)"')}</div>
-      <div style="text-align:right"><div class="ap">${esc(r.to)}</div><div class="apn" style="margin-left:auto">${esc(r.toName)}</div></div></div>
-      ${r.note ? `<div class="routenote">${esc(r.note)}</div>` : ""}${p.demo ? '<div class="routenote">Simulated demo flight.</div>' : ""}`;
-  } else if (r) box.innerHTML = `<div class="routenote">${esc(r.note)}</div>`;
-  else box.innerHTML = `<div class="routenote">${p.flight ? "Looking up route…" : "No callsign, so the route can't be looked up."}</div>`;
+  if (!r) { setHTML(box, `<div class="routenote">${p.flight ? "Looking up route…" : "No callsign, so the route can't be looked up."}</div>`); return; }
+  if (!r.ok) { setHTML(box, `<div class="routenote">${esc(r.note)}</div>`); return; }
+  const T = p.demo ? p.times : timesCache.get(p.flight);
+  const tm = T && !T.err ? T : null;
+  const o = Object.assign({}, r.fromAp || { code: r.from, city: r.fromName }), d = Object.assign({}, r.toAp || { code: r.to, city: r.toName });
+  if (tm && tm.origin) { o.name = tm.origin.name || o.name; o.city = tm.origin.city || o.city; o.tz = tm.origin.tz; }
+  if (tm && tm.destination) { d.name = tm.destination.name || d.name; d.city = tm.destination.city || d.city; d.tz = tm.destination.tz; }
+
+  // progress: from the schedule API, else from distances
+  const L = livePlane(p, Date.now());
+  let prog = tm && tm.progress != null ? tm.progress : null, remKm = null;
+  if (d.lat != null) {
+    remKm = gcKm(L.lat, L.lon, d.lat, d.lon);
+    if (prog == null && o.lat != null) { const tot = gcKm(o.lat, o.lon, d.lat, d.lon); if (tot > 1) prog = Math.max(0, Math.min(100, 100 * (1 - remKm / tot))); }
+  }
+  // calculated arrival when no schedule data (straight line at current speed + ~10 min for approach)
+  let calcEta = null;
+  if (remKm != null && p.gs > 80) calcEta = new Date(Date.now() + (remKm / (p.gs * 1.852)) * 3600e3 + (remKm > 40 ? 600e3 : 0)).toISOString();
+
+  const row = (label, iso, tz, cls) => { const c = fmtClock(iso, tz); return c ? `<div class="trow"><div class="tl">${label}</div><div class="tv ${cls || ""}">${c.hm}<small>${esc(c.z)}</small></div></div>` : ""; };
+  const lateCls = (act, sch) => act && sch ? ((Date.parse(act) - Date.parse(sch)) / 60000 > 15 ? "late" : "ok") : "";
+  let depHTML = "", arrHTML = "", status = "", note = "";
+  if (tm) {
+    depHTML = row("Scheduled", tm.dep.scheduled, o.tz) +
+      (tm.dep.actual ? row("Departed gate", tm.dep.actual, o.tz, lateCls(tm.dep.actual, tm.dep.scheduled)) : row("Estimated", tm.dep.estimated, o.tz, "est")) +
+      (tm.dep.takeoff ? row("Took off", tm.dep.takeoff, o.tz) : "");
+    arrHTML = row("Scheduled", tm.arr.scheduled, d.tz) +
+      (tm.arr.actual ? row("Arrived", tm.arr.actual, d.tz, lateCls(tm.arr.actual, tm.arr.scheduled)) : row("Estimated", tm.arr.estimated, d.tz, tm.arr.estimated ? lateCls(tm.arr.estimated, tm.arr.scheduled) || "est" : "est"));
+    const dl = tm.delay_arr_min != null ? tm.delay_arr_min : tm.delay_dep_min;
+    status = [tm.status, dl != null ? (dl > 15 ? `Delayed ${dl} min` : dl < -5 ? `Early ${-dl} min` : "On time") : ""].filter(Boolean).join(" · ");
+    if (p.demo) note = "Simulated demo flight and times.";
+  } else {
+    depHTML = `<div class="trow"><div class="tl">Departure time</div><div class="tv" style="color:var(--dim)">—</div></div>`;
+    arrHTML = calcEta ? row("Est. arrival*", calcEta, null, "est") : `<div class="trow"><div class="tl">Arrival time</div><div class="tv" style="color:var(--dim)">—</div></div>`;
+    const why = !T ? (p.flight ? "Loading schedule…" : "") :
+      T.err === "nokey" ? "Add a FlightAware AeroAPI key to your Cloudflare worker (AEROAPI_KEY) to show scheduled and actual times." :
+      T.err === "noproxy" ? "Scheduled times need the Cloudflare app/proxy. Open the app from your workers.dev address." :
+      T.err === "notfound" ? "No schedule found for this callsign." : "Couldn't load schedule times right now.";
+    note = (calcEta ? "*Estimated from distance and current speed. " : "") + why;
+  }
+  setHTML(box, `<div class="itin">
+    <div class="ends">
+      <div class="end"><div class="tl">From</div><div class="ap">${esc(o.code || "—")}</div><div class="city">${esc(o.city || "")}</div><div class="apn">${esc(o.name || "")}</div></div>
+      <div class="mid">${PLANE_SVG}</div>
+      <div class="end r"><div class="tl">To</div><div class="ap">${esc(d.code || "—")}</div><div class="city">${esc(d.city || "")}</div><div class="apn">${esc(d.name || "")}</div></div>
+    </div>
+    ${prog != null ? `<div class="prog"><i style="width:${prog.toFixed(0)}%"></i><b style="left:${prog.toFixed(0)}%">${PLANE_SVG}</b></div>` : '<div style="height:10px"></div>'}
+    <div class="times"><div class="tcol">${depHTML}</div><div class="tcol r">${arrHTML}</div></div>
+    ${status ? `<div class="status">${esc(status)}</div>` : ""}
+    ${remKm != null ? `<div class="status" style="color:var(--muted);font-weight:500">${fmt(remKm)} km to go</div>` : ""}
+  </div>${r.note ? `<div class="routenote">${esc(r.note)}</div>` : ""}${note ? `<div class="routenote">${esc(note)}</div>` : ""}`);
 }
+let routeTick = 0;
+function tickDetailRoute() { const n = Date.now(); if (n - routeTick < 1000) return; routeTick = n; const p = st.planes.get(st.selectedHex); if (p) renderDetailRoute(p); }
 function updateDetail(it) {
   if (!it) return;
   const p = it.p, rows = [

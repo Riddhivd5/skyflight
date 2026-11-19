@@ -743,7 +743,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   #top{position:fixed;left:0;right:0;top:0;padding:calc(var(--safe-t) + 8px) 12px 0;pointer-events:none;
     background:linear-gradient(rgba(4,7,12,.8),rgba(4,7,12,.35) 70%,rgba(4,7,12,0))}
   .pills{display:flex;gap:6px;align-items:center}
-  .pill{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font:600 11.5px var(--mono);white-space:nowrap}
+  .pill{display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;font:600 11.5px var(--mono);white-space:nowrap}
   .pill .d{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
   .pill .d.stale{background:var(--amber);box-shadow:0 0 8px var(--amber)}
   .pill .d.err{background:var(--red);box-shadow:0 0 8px var(--red)}
@@ -806,9 +806,31 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .ovr .bar i{display:block;height:100%;background:var(--cyan)}
   .empty{padding:18px 14px;border-radius:16px;background:#111a28;color:var(--muted);font:500 13px/1.45 system-ui,sans-serif}
 
+  /* ---------- 3D view ---------- */
+  #map3d{position:fixed;inset:0;z-index:0;background:#0a1120}
+  .maplibregl-map{overflow:hidden;position:relative;-webkit-tap-highlight-color:transparent}
+  .maplibregl-canvas{position:absolute;left:0;top:0}
+  .maplibregl-canvas-container.maplibregl-interactive{cursor:grab}
+  .maplibregl-ctrl-bottom-right,.maplibregl-ctrl-bottom-left,.maplibregl-ctrl-top-left,.maplibregl-ctrl-top-right{position:absolute;pointer-events:none;z-index:2}
+  .maplibregl-ctrl-bottom-right{right:0;bottom:var(--cardh,170px)}
+  .maplibregl-ctrl{pointer-events:auto;clear:both}
+  .maplibregl-ctrl-attrib{background:rgba(7,11,18,.7);color:#6f7d93;font:10px var(--mono);padding:2px 8px;border-radius:8px 0 0 0}
+  .maplibregl-ctrl-attrib a{color:#8fa3c0}
+  .maplibregl-ctrl-attrib-button{display:none}
+  .maplibregl-marker{position:absolute;top:0;left:0;will-change:transform}
+  .ap3d{font:600 11px var(--mono);color:rgba(234,240,247,.85);display:flex;align-items:center;gap:5px;pointer-events:none;text-shadow:0 1px 3px #000}
+  .ap3d i{width:7px;height:7px;border-radius:2px;background:rgba(234,240,247,.9)}
+  .sel3d{pointer-events:none;transform:translate(14px,-50%)}
+  .sel3d div{padding:4px 9px;border-radius:8px;background:rgba(18,30,6,.94);border:1px solid rgba(158,240,26,.7);font:700 12px var(--disp);color:#eaf0f7;white-space:nowrap}
+  .sel3d small{font:500 10px var(--mono);color:#8c99ad;margin-left:6px}
+  body.m3d #map{display:none} body:not(.m3d) #map3d{display:none}
+  body:not(.m3d) .only3d{display:none!important}
+  #follow.on{background:var(--lock);color:#0a1200;border-color:transparent}
+  @media (max-width:385px){ #p-gps{display:none} }
+
   /* ---------- mode switch + map ---------- */
   .seg{display:flex;gap:2px;padding:3px;border-radius:999px;pointer-events:auto}
-  .seg button{width:34px;height:30px;border:0;border-radius:999px;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:background .2s,color .2s}
+  .seg button{width:32px;height:30px;border:0;border-radius:999px;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:background .2s,color .2s}
   .seg button svg{width:17px;height:17px}
   .seg button.on{background:var(--fg);color:#0a0f18}
   #map{position:fixed;inset:0;z-index:0;background:#0a1120}
@@ -829,6 +851,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
   body.map #notice{top:calc(var(--safe-t) + 104px)}
   .idle .go{margin-top:8px;font:600 12px var(--mono);color:var(--cyan)}
   #f-q{margin-top:14px}
+  .tabs{display:flex;gap:4px;padding:4px;margin-top:14px;border-radius:12px;background:#111a28}
+  .tabs button{flex:1;border:0;border-radius:9px;padding:9px;background:transparent;color:var(--muted);font:600 13px system-ui,sans-serif;cursor:pointer}
+  .tabs button.on{background:var(--fg);color:#0a0f18}
+  .rt{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-top:12px}
+  .rt button{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:#141e2e;color:var(--fg);font-size:17px;cursor:pointer}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chips button{border:1px solid var(--line);background:#111a28;color:#c4cddb;border-radius:999px;padding:6px 11px;font:500 12px var(--mono);cursor:pointer}
+  .fstat{margin-top:10px;font:500 12px var(--mono);color:var(--muted)}
+  .fstat a{color:var(--cyan);font-weight:600;text-decoration:none}
+  .ovr .rr{font:700 13px var(--disp);color:var(--lock);letter-spacing:.3px}
+  #rfilter{position:fixed;left:12px;top:calc(var(--safe-t) + 104px);display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-radius:999px;
+    font:600 12px var(--mono);border-color:rgba(158,240,26,.45);cursor:pointer;max-width:calc(100% - 80px)}
+  #rfilter b{color:var(--lock)} #rfilter span{color:var(--muted);font-weight:500}
+  #rfilter i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
+  body:not(.map) #rfilter{display:none}
 
   /* ---------- sheets ---------- */
   #scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:19;animation:fade .2s}
@@ -923,6 +960,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <video id="cam" playsinline muted autoplay></video>
 <div id="vignette"></div>
 <div id="map"></div>
+<div id="map3d"></div>
 <div id="layer"></div>
 <div id="reticle"><i></i><i></i><i></i><i></i><b></b><div id="pitch"></div></div>
 
@@ -934,6 +972,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="seg glass" id="mode">
       <button data-m="ar" aria-label="Camera view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg></button>
       <button data-m="map" aria-label="Radar map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg></button>
+      <button data-m="3d" aria-label="3D view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg></button>
     </div>
     <button class="glass" id="gear" aria-label="Settings" style="margin-left:0">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -943,9 +982,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 </div>
 <canvas id="radar" width="288" height="288"></canvas>
 <div id="notice" class="glass" hidden></div>
+<div id="rfilter" class="glass" hidden></div>
 <div id="maplegend" class="glass"><span><i style="background:var(--coral)"></i>&lt;10k</span><span><i style="background:var(--amber)"></i>10–25k</span><span><i style="background:var(--violet)"></i>&gt;25k ft</span></div>
 <div id="mapctl">
   <button class="glass" id="m-loc" aria-label="Center on me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+  <button class="glass only3d" id="follow" aria-label="Follow selected plane"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></button>
   <button class="glass" id="m-find" aria-label="Find a flight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
 </div>
 
@@ -971,8 +1012,20 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div class="sheet" id="find" hidden>
   <div class="grab"></div>
   <h2>Find a flight</h2>
-  <div class="sub">Search flights currently loaded: flight number, airline, aircraft or registration</div>
-  <input type="text" id="f-q" placeholder="e.g. 6E 6123, IndiGo, A320, VT-ITX" autocomplete="off" autocapitalize="characters">
+  <div class="sub">Searches flights currently on the map / in range</div>
+  <div class="tabs"><button data-t="flight" class="on">Flight</button><button data-t="route">Route</button></div>
+  <div id="f-flight">
+    <input type="text" id="f-q" placeholder="6E 6123, IndiGo, A320, VT-ITX or BLR-DEL" autocomplete="off" autocapitalize="characters">
+  </div>
+  <div id="f-route" hidden>
+    <div class="rt">
+      <input type="text" id="f-from" placeholder="From: BLR or Bengaluru" autocomplete="off">
+      <button id="f-swap" aria-label="Swap">⇄</button>
+      <input type="text" id="f-to" placeholder="To: any" autocomplete="off">
+    </div>
+    <div class="chips" id="f-chips"></div>
+  </div>
+  <div class="fstat" id="f-stat"></div>
   <div class="ovl" id="f-list"></div>
   <div style="margin-top:12px"><button class="btn ghost full" id="f-close">Close</button></div>
 </div>
@@ -1040,6 +1093,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="hint">How close (along the ground) a plane must pass to count as flying over you.</div>
     </div>
     <div class="field toggle"><span>Alert me 1 minute before a plane flies over</span><input type="checkbox" id="s-alert"></div>
+    <div class="field">
+      <div class="lbl">3D height exaggeration <b id="v-exag"></b></div>
+      <input type="range" id="s-exag" min="1" max="6" step="0.5">
+      <div class="hint">Stretches altitudes in the 3D view so climbing and descending planes stand out. 1× is true scale.</div>
+    </div>
     <div class="field">
       <div class="lbl">Tag colour = altitude</div>
       <div class="legend"><span><i style="background:var(--coral)"></i>below 10k ft</span><span><i style="background:var(--amber)"></i>10–25k ft</span><span><i style="background:var(--violet)"></i>above 25k ft</span></div>
@@ -1124,7 +1182,7 @@ const typeName = t => TYPES[t] || t || "";
 
 /* ---------------- settings ---------------- */
 const KEY = EMBED ? "skyflight-demo" : "skyflight";
-const DEFAULTS = { mode: "ar", cartoKey: "", fov: 66, offset: 0, radiusNm: 40, overKm: 5, alert: true, source: "auto", proxy: "", obsAlt: "", loc: "", demo: EMBED };
+const DEFAULTS = { mode: "ar", exag: 2.5, cartoKey: "", fov: 66, offset: 0, radiusNm: 40, overKm: 5, alert: true, source: "auto", proxy: "", obsAlt: "", loc: "", demo: EMBED };
 let S = { ...DEFAULTS };
 try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
 if (EMBED) { S.demo = true; S.loc = ""; }
@@ -1242,6 +1300,10 @@ function fetchCenter() {
   if (S.mode === "map" && map) {
     const c = map.getCenter(), ne = map.getBounds().getNorthEast();
     return { lat: c.lat, lon: c.lng, r: Math.max(10, Math.min(250, Math.ceil(map.distance(c, ne) / 1852))) };
+  }
+  if (S.mode === "3d" && map3d) {
+    const c = map3d.getCenter(), b = map3d.getBounds(), ne = b.getNorthEast();
+    return { lat: c.lat, lon: c.lng, r: Math.max(10, Math.min(250, Math.ceil(gcKm(c.lat, c.lng, ne.lat, ne.lng) / 1.852))) };
   }
   const o = observer(); return o ? { lat: o.lat, lon: o.lon, r: Math.round(S.radiusNm) } : null;
 }
@@ -1445,8 +1507,8 @@ const trend = vr => vr > 300 ? '<span class="up">▲</span>' : vr < -300 ? '<spa
 const altBand = ft => ft < 10000 ? "lo" : ft > 25000 ? "hi" : "";
 
 function frame() {
-  const W = innerWidth, H = innerHeight, now = Date.now(), o = observer(), isMap = S.mode === "map" && !!map;
-  const oRef = o || (isMap ? (c => ({ lat: c.lat, lon: c.lng, alt: 0 }))(map.getCenter()) : null);
+  const W = innerWidth, H = innerHeight, now = Date.now(), o = observer(), isMap = S.mode === "map" && !!map, is3d = S.mode === "3d" && !!map3d;
+  const oRef = o || (isMap ? (c => ({ lat: c.lat, lon: c.lng, alt: 0 }))(map.getCenter()) : is3d ? (c => ({ lat: c.lat, lon: c.lng, alt: 0 }))(map3d.getCenter()) : null);
   const { d, up, right } = cameraBasis(), f = focalPx(W, H);
   const hdg = (Math.atan2(d[0], d[1]) / DEG + 360) % 360, pitch = Math.asin(Math.max(-1, Math.min(1, d[2]))) / DEG;
 
@@ -1461,12 +1523,13 @@ function frame() {
   }
 
   const allItems = items;
-  if (isMap) {
+  if (isMap || is3d) {
     const sel = st.mapSel ? items.find(i => i.p.hex === st.mapSel) : null;
     if (st.mapSel && !sel) st.mapSel = null;
     st.focusHex = sel ? sel.p.hex : null;
     if (sel) lookupRoute(sel.p);
-    drawMap(items, now, hdg);
+    if (isMap) drawMap(items, now, hdg); else draw3d(items, now, sel);
+    renderRouteFilterChip();
     renderTop(o, items.length, hdg, pitch);
     renderCard(sel, items, hdg);
     updateOverhead(o, now);
@@ -1616,7 +1679,7 @@ function renderTop(o, n, hdg, pitch) {
   let note = "";
   if (!S.demo && st.posErr === "denied" && !parseManualLoc()) note = "Location is off. Allow it in your browser settings, or set a manual location in ⚙︎.";
   else if (!S.demo && st.fetchErr && age > 20) note = S.proxy ? "Your proxy isn't responding (" + st.fetchErr + "). Check the Proxy URL in ⚙︎." : "Flight APIs block direct requests from browsers. Open the app from your workers.dev address, or paste that address in ⚙︎ → Proxy URL.";
-  else if (S.mode === "map") note = "";
+  else if (S.mode !== "ar") note = "";
   else if (!haveOri()) note = EMBED ? "Drag to look around the sky." : "No motion sensors detected. Drag to look around.";
   else if (!st.gotAbsolute) note = "Compass isn't north-referenced on this browser. Use compass correction in ⚙︎.";
   const ne = $("#notice"); if (ne._t !== note) { ne.textContent = note; ne._t = note; ne.hidden = !note; }
@@ -1649,7 +1712,7 @@ function renderCard(focus, items, hdg) {
     card.onclick = () => openDetail(p.hex);
   } else {
     let m, t = "Aim at a plane", go = '<div class="go">Nothing overhead? Tap for the radar map ›</div>';
-    if (S.mode === "map") { t = "Tap a plane"; go = ""; m = `${items.length} flights on the map${ovList.length ? " · " + ovList.length + " coming over you" : ""}`; }
+    if (S.mode !== "ar") { t = "Tap a plane"; go = ""; m = `${items.length} flights on the map${ovList.length ? " · " + ovList.length + " coming over you" : ""}`; }
     else if (!items.length) m = S.demo ? "Loading demo planes…" : (st.fetchErr ? "Couldn't load flights yet. Check ⚙︎." : "Searching for flights within " + S.radiusNm + " NM…");
     else {
       const n = items.slice().filter(i => i.el > -1).sort((a, b) => a.ang - b.ang)[0] || items[0];
@@ -1657,7 +1720,7 @@ function renderCard(focus, items, hdg) {
       m = `Nearest to your view: <b>${esc(flightLabel(n.p))}</b><br>Turn ${Math.abs(Math.round(turn))}° ${turn >= 0 ? "right" : "left"} and look ${Math.round(n.el)}° up`;
     }
     setHTML(card, `<div class="idle"><div class="t">${t}</div><div class="m">${m}</div>${go}</div>`);
-    card.onclick = S.mode === "map" ? null : () => setMode("map");
+    card.onclick = S.mode !== "ar" ? null : () => setMode("map");
   }
 }
 
@@ -1782,11 +1845,18 @@ async function setMode(m) {
   if (m === "map") {
     try { await loadLeaflet(); initMap(); } catch (e) { toast("Couldn't load the map. Check your internet connection."); m = "ar"; }
   }
+  if (m === "3d") {
+    try { await load3d(); await init3d(); } catch (e) { toast("Couldn't start the 3D view (" + (e.message || "WebGL unavailable") + ")."); m = map ? "map" : "ar"; }
+  }
+  if (m !== "3d") st.follow = false;
   S.mode = m; save();
-  document.body.classList.toggle("map", m === "map");
+  document.body.classList.toggle("map", m === "map" || m === "3d");
+  document.body.classList.toggle("m3d", m === "3d");
   document.querySelectorAll("#mode button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
   const v = $("#cam");
-  if (m === "map") { setTimeout(() => map && map.invalidateSize(), 0); if (st.camOk) v.pause(); }
+  if (m === "map") { setTimeout(() => map && map.invalidateSize(), 0); }
+  if (m === "3d") { setTimeout(() => map3d && map3d.resize(), 0); }
+  if (m !== "ar") { if (st.camOk) v.pause(); }
   else if (st.camOk) v.play().catch(() => {});
   if (st.started) scheduleFetch();
 }
@@ -1865,6 +1935,8 @@ function drawMap(items, now, hdg) {
   for (const it of sorted) {
     const q = pt(it.L.lat, it.L.lon); if (q.x < -30 || q.x > W + 30 || q.y < -30 || q.y > H + 30) continue;
     const isSel = it.p.hex === st.mapSel, col = isSel ? "#9ef01a" : BAND_COL[altBand(it.L.altFt)];
+    const dim = st.routeFilter && !isSel && !routeMatch(it.p, st.routeFilter.from, st.routeFilter.to);
+    g.globalAlpha = dim ? 0.18 : 1;
     st.mapPts.push({ hex: it.p.hex, x: q.x, y: q.y });
     if (incoming.has(it.p.hex)) {
       g.strokeStyle = "rgba(92,225,230,.9)"; g.lineWidth = 1.5; g.setLineDash([3, 3]);
@@ -1875,8 +1947,8 @@ function drawMap(items, now, hdg) {
     if (isSel) { g.shadowColor = "rgba(158,240,26,.9)"; g.shadowBlur = 16; }
     g.lineWidth = 2.4; g.lineJoin = "round"; g.strokeStyle = "rgba(4,7,12,.9)"; g.stroke(PLANE_PATH);
     g.fillStyle = col; g.fill(PLANE_PATH);
-    g.restore();
-    if (isSel || z >= 8.5 || items.length < 25) labels.push({ it, q, isSel });
+    g.restore(); g.globalAlpha = 1;
+    if (isSel || (!dim && (z >= 8.5 || items.length < 25 || st.routeFilter))) labels.push({ it, q, isSel });
   }
   labels.sort((a, b) => b.isSel - a.isSel);
   const placed = [];
@@ -1896,36 +1968,161 @@ function drawMap(items, now, hdg) {
   }
 }
 
-$("#m-loc").onclick = () => { const o = observer(); if (o && map) map.flyTo([o.lat, o.lon], Math.max(map.getZoom(), 9), { duration: 0.8 }); else toast("Waiting for your location…"); };
-$("#m-find").onclick = () => { st.selectedHex = null; showSheet("find"); renderFind(); };
+$("#m-loc").onclick = () => {
+  const o = observer(); if (!o) return toast("Waiting for your location…");
+  st.follow = false; $("#follow").classList.remove("on");
+  if (S.mode === "3d" && map3d) map3d.flyTo({ center: [o.lon, o.lat], zoom: 9.5, pitch: 60, bearing: 0, duration: 900 });
+  else if (map) map.flyTo([o.lat, o.lon], Math.max(map.getZoom(), 9), { duration: 0.8 });
+};
+$("#m-find").onclick = () => { st.selectedHex = null; showSheet("find"); if (findTab === "route") batchRoutes(); renderFind(); };
+// ---------- route search ----------
+const CITY_ALIAS = { bangalore: "bengaluru", bombay: "mumbai", madras: "chennai", calcutta: "kolkata", cochin: "kochi", trivandrum: "thiruvananthapuram",
+  mysore: "mysuru", mangalore: "mangaluru", hubli: "hubballi", trichy: "tiruchirappalli", goa: "goa", delhi: "delhi", "new delhi": "delhi" };
+const normPlace = t => { t = (t || "").trim().toLowerCase().replace(/\s+/g, " "); return CITY_ALIAS[t] || t; };
+function apMatches(q, code, city, name) {
+  if (!q) return true;
+  if (!code && !city) return false;
+  const c = (code || "").toLowerCase();
+  if (q.length <= 4 && /^[a-z]{3,4}$/.test(q) && c === q) return true;
+  const hay = normPlace(city) + " | " + (name || "").toLowerCase();
+  return q.length >= 3 && hay.includes(q);
+}
+function routeMatch(p, from, to) {
+  const r = routeOf(p); if (!r || !r.ok) return false;
+  const o = r.fromAp || {}, d = r.toAp || {};
+  return apMatches(from, r.from, r.fromName || o.city, o.name) && apMatches(to, r.to, r.toName || d.city, d.name);
+}
+// parse "BLR-DEL", "BLR to DEL", "from Bengaluru", "to Mumbai", "BLR→"
+function parseRoute(raw) {
+  const t = raw.trim().toLowerCase();
+  let m = t.match(/^(?:from\s+)?(.+?)\s*(?:->|→|>|-|–|\bto\b)\s*(.*)$/);
+  const place = x => !x || /^[a-z][a-z .]{2,}$/.test(x.trim());
+  if (m && (m[1] || m[2]) && place(m[1]) && place(m[2])) return { from: normPlace(m[1]), to: normPlace(m[2]) };
+  m = t.match(/^(?:to|→)\s*(.+)$/); if (m) return { from: "", to: normPlace(m[1]) };
+  m = t.match(/^from\s+(.+)$/); if (m) return { from: normPlace(m[1]), to: "" };
+  return null;
+}
+// fetch routes for every loaded flight in a few batched requests (adsb.lol routeset accepts many at once)
+let routeBatchBusy = false;
+async function batchRoutes() {
+  if (routeBatchBusy) return; routeBatchBusy = true;
+  try {
+    const todo = [...st.planes.values()].filter(p => p.flight && !p.demo && !routeCache.has(p.flight) && !routePending.has(p.flight));
+    const url = apiUrl("/api/route") || "https://api.adsb.lol/api/0/routeset";
+    for (let i = 0; i < todo.length; i += 40) {
+      const chunk = todo.slice(i, i + 40);
+      chunk.forEach(p => routePending.add(p.flight));
+      try {
+        const j = await fetchJSON(url, 9000, { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planes: chunk.map(p => ({ callsign: p.flight, lat: +p.lat.toFixed(3), lng: +p.lon.toFixed(3) })) }) });
+        const by = new Map((Array.isArray(j) ? j : []).map(x => [String(x.callsign || "").trim(), x]));
+        for (const p of chunk) {
+          const x = by.get(p.flight);
+          if (x && x._airport_codes_iata && x._airport_codes_iata !== "unknown") {
+            const codes = x._airport_codes_iata.split("-"), aps = Array.isArray(x._airports) ? x._airports : [];
+            const A = (a, c) => a ? { code: c, name: a.name || "", city: a.location || "", lat: a.lat, lon: a.lon } : { code: c, name: "", city: "" };
+            const o = A(aps[0], codes[0]), d = A(aps[aps.length - 1], codes[codes.length - 1]);
+            if (!routeCache.has(p.flight)) routeCache.set(p.flight, { ok: true, from: o.code, to: d.code, fromName: o.city, toName: d.city, fromAp: o, toAp: d, note: x.plausible === false ? "Route not verified for this flight today." : "" });
+          } else if (!routeCache.has(p.flight)) routeCache.set(p.flight, { ok: false, note: "Route not in the free databases. Try the links below." });
+        }
+      } catch (e) { /* leave uncached so a later search can retry */ }
+      chunk.forEach(p => routePending.delete(p.flight));
+      if (!$("#find").hidden) renderFind();
+    }
+  } finally { routeBatchBusy = false; }
+}
+let findTab = "flight";
+document.querySelectorAll("#find .tabs button").forEach(b => b.onclick = () => {
+  findTab = b.dataset.t;
+  document.querySelectorAll("#find .tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $("#f-flight").hidden = findTab !== "flight"; $("#f-route").hidden = findTab !== "route";
+  if (findTab === "route") batchRoutes();
+  renderFind();
+});
+$("#f-swap").onclick = () => { const a = $("#f-from").value; $("#f-from").value = $("#f-to").value; $("#f-to").value = a; renderFind(); };
+$("#f-from").oninput = $("#f-to").oninput = () => renderFind();
+$("#f-chips").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; $("#f-from").value = b.dataset.f; $("#f-to").value = b.dataset.t; renderFind(); });
+
+function currentRouteQuery() {
+  if (findTab === "route") { const f = normPlace($("#f-from").value), t = normPlace($("#f-to").value); return (f || t) ? { from: f, to: t } : null; }
+  return parseRoute($("#f-q").value);
+}
 function renderFind() {
   const raw = $("#f-q").value, q = raw.trim().toLowerCase().replace(/\s+/g, "");
   const o = observer(), c = map ? map.getCenter() : null, ref = o || (c ? { lat: c.lat, lon: c.lng } : null);
+  const rq = currentRouteQuery();
+  if (rq && findTab === "flight") batchRoutes();
   const rows = [];
   for (const p of st.planes.values()) {
     const a = airlineOf(p.flight);
-    const hay = [p.flight, flightLabel(p), p.reg, p.type, typeName(p.type), a && a.name, p.hex].filter(Boolean).join("|").toLowerCase().replace(/\s+/g, "");
-    if (q && !hay.includes(q)) continue;
+    if (rq) { if (!routeMatch(p, rq.from, rq.to)) continue; }
+    else if (findTab === "flight") {
+      const hay = [p.flight, flightLabel(p), p.reg, p.type, typeName(p.type), a && a.name, p.hex].filter(Boolean).join("|").toLowerCase().replace(/\s+/g, "");
+      if (q && !hay.includes(q)) continue;
+    }
     const v = ref ? enu({ lat: ref.lat, lon: ref.lon, alt: 0 }, p.lat, p.lon, 0) : [0, 0];
     rows.push({ p, a, d: Math.hypot(v[0], v[1]) });
   }
   rows.sort((x, y) => x.d - y.d);
-  setHTML($("#f-list"), rows.length ? rows.slice(0, 25).map(({ p, a, d }) => {
-    const r = routeOf(p);
+
+  // status + popular-route chips
+  const withFlight = [...st.planes.values()].filter(p => p.flight), known = withFlight.filter(p => routeOf(p));
+  const pending = withFlight.length - known.length;
+  let stat = "";
+  if (rq) stat = `${rows.length} flight${rows.length === 1 ? "" : "s"} ${rq.from ? "from " + rq.from.toUpperCase() : ""}${rq.from && rq.to ? " " : ""}${rq.to ? "to " + rq.to.toUpperCase() : ""}` +
+    (pending > 0 && routeBatchBusy ? ` · checking routes for ${pending} more…` : "") + (rows.length ? ` · <a href="#" id="f-show">Show on map</a>` : "");
+  else if (findTab === "route") stat = routeBatchBusy ? `Loading routes for ${pending} flights…` : `${known.filter(p => routeOf(p).ok).length} of ${withFlight.length} flights have a known route. Type an airport code or city.`;
+  setHTML($("#f-stat"), stat);
+  if (findTab === "route") {
+    const counts = new Map();
+    for (const p of known) { const r = routeOf(p); if (r.ok) { const k = r.from + "→" + r.to; counts.set(k, (counts.get(k) || 0) + 1); } }
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    setHTML($("#f-chips"), top.map(([k, n]) => { const [f, t] = k.split("→"); return `<button data-f="${esc(f)}" data-t="${esc(t)}">${esc(f)} → ${esc(t)} · ${n}</button>`; }).join(""));
+  }
+  if (findTab === "route" && !rq) { setHTML($("#f-list"), ""); return; }
+  setHTML($("#f-list"), rows.length ? rows.slice(0, 30).map(({ p, a, d }) => {
+    const r = routeOf(p), rt = r && r.ok ? `<div class="rr">${esc(r.from)} → ${esc(r.to)}${r.fromName || r.toName ? ` <span style="color:var(--muted);font:500 11px var(--mono)">${esc(r.fromName || "")} → ${esc(r.toName || "")}</span>` : ""}</div>` : "";
     return `<div class="ovr" data-hex="${esc(p.hex)}"><div class="f">${esc(flightLabel(p))}<small>${esc(a ? a.name : typeName(p.type))}</small></div>
       <div class="e" style="font-size:15px;color:var(--fg)">${(d / 1000).toFixed(0)} km</div>
-      <div class="m">${esc(typeName(p.type) || "—")} · ${fmt(p.altFt)} ft · ${fmt(p.gs)} kt${r && r.ok ? " · " + esc(r.from) + "→" + esc(r.to) : ""}${p.reg ? " · " + esc(p.reg) : ""}</div></div>`;
-  }).join("") : `<div class="empty">No loaded flight matches “${esc(raw)}”. Only flights in range can be searched, so zoom the map out to load more.</div>`);
+      <div class="m">${rt}${esc(typeName(p.type) || "—")} · ${fmt(p.altFt)} ft · ${fmt(p.gs)} kt${p.reg ? " · " + esc(p.reg) : ""}</div></div>`;
+  }).join("") : `<div class="empty">${rq ? (routeBatchBusy ? "Checking routes…" : "No flight on this route is in range right now. Zoom the map out to load more flights.") : `No loaded flight matches “${esc(raw)}”. Only flights in range can be searched, so zoom the map out to load more.`}</div>`);
+  const sh = $("#f-show"); if (sh) sh.onclick = e => { e.preventDefault(); applyRouteFilter(rq); };
+}
+// ---------- route filter on the map ----------
+function applyRouteFilter(rq) {
+  st.routeFilter = rq; closeSheets();
+  if (S.mode === "ar") setMode("map");
+  // fit the map to the matching flights
+  setTimeout(() => {
+    const pts = [...st.planes.values()].filter(p => routeMatch(p, rq.from, rq.to)).map(p => [p.lat, p.lon]);
+    if (S.mode === "3d" && map3d && pts.length) {
+      const la = pts.map(q => q[0]), lo = pts.map(q => q[1]);
+      map3d.fitBounds([[Math.min(...lo), Math.min(...la)], [Math.max(...lo), Math.max(...la)]], { padding: 90, maxZoom: 10, pitch: 55, duration: 900 });
+      return;
+    }
+    if (!map) return;
+    if (pts.length === 1) map.flyTo(pts[0], Math.max(map.getZoom(), 8), { duration: 0.8 });
+    else if (pts.length > 1) map.flyToBounds(pts, { padding: [70, 70], maxZoom: 10, duration: 0.8 });
+  }, 150);
+}
+$("#rfilter").onclick = () => { st.routeFilter = null; };
+function renderRouteFilterChip() {
+  const el = $("#rfilter"), rq = st.routeFilter;
+  if (!rq) { if (!el.hidden) el.hidden = true; return; }
+  const n = [...st.planes.values()].filter(p => routeMatch(p, rq.from, rq.to)).length;
+  setHTML(el, `<b>${esc((rq.from || "any").toUpperCase())} → ${esc((rq.to || "any").toUpperCase())}</b><span>${n} flight${n === 1 ? "" : "s"}</span><i>✕</i>`);
+  el.hidden = false;
 }
 $("#f-q").oninput = renderFind;
 $("#f-list").addEventListener("click", e => { const r = e.target.closest(".ovr"); if (r) focusOnMap(r.dataset.hex); });
 $("#f-close").onclick = closeSheets;
 async function focusOnMap(hex) {
   closeSheets();
-  if (S.mode !== "map") await setMode("map");
-  const p = st.planes.get(hex); if (!p || !map) return;
+  if (S.mode === "ar") await setMode("map");
+  const p = st.planes.get(hex); if (!p) return;
   st.mapSel = hex; const L2 = livePlane(p, Date.now());
-  map.flyTo([L2.lat, L2.lon], Math.max(map.getZoom(), 9), { duration: 0.8 });
+  if (S.mode === "3d" && map3d) map3d.flyTo({ center: [L2.lon, L2.lat], zoom: Math.max(map3d.getZoom(), 9.5), pitch: 60, duration: 900 });
+  else if (map) map.flyTo([L2.lat, L2.lon], Math.max(map.getZoom(), 9), { duration: 0.8 });
 }
 async function findInSky(hex) {
   closeSheets(); await setMode("ar");
@@ -1936,6 +2133,136 @@ async function findInSky(hex) {
   if (!haveOri()) { st.manual.yaw = az; st.manual.pitch = Math.max(-10, Math.min(89, el)); }
   toast(`Look ${Math.round(az)}° ${compass(az)}, ${Math.round(el)}° up to find ${flightLabel(p)}`, 6000);
 }
+
+/* ---------------- 3D view (MapLibre GL) ---------------- */
+const ML_VER = "5.24.1", ML_BASE = "https://cdn.jsdelivr.net/npm/maplibre-gl@" + ML_VER + "/dist/";
+let map3d = null, ml3dP = null, last3d = 0, sel3dMarker = null, ap3dMarkers = [];
+function load3d() {
+  if (window.maplibregl) return Promise.resolve();
+  if (!ml3dP) ml3dP = new Promise((res, rej) => {
+    if (!EMBED) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = ML_BASE + "maplibre-gl.css"; document.head.appendChild(l); }
+    const sc = document.createElement("script"); sc.src = ML_BASE + "maplibre-gl.js";
+    sc.onload = res; sc.onerror = () => { ml3dP = null; rej(new Error("3D library failed to load")); };
+    document.head.appendChild(sc);
+  });
+  return ml3dP;
+}
+const BLANK_STYLE = { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#0a1120" } }] };
+async function init3d() {
+  if (map3d) return;
+  const o = observer() || { lat: 12.9716, lon: 77.5946 };
+  let style = BLANK_STYLE;
+  if (!EMBED) { // free dark basemap, no key; fall back to a plain dark ground if it can't load
+    try { const r = await fetchJSON("https://tiles.openfreemap.org/styles/dark", 6000); if (r && r.layers) style = r; } catch (e) {}
+  }
+  map3d = new maplibregl.Map({ container: "map3d", style, center: [o.lon, o.lat], zoom: 9.3, pitch: 60, bearing: -20, maxPitch: 80,
+    attributionControl: false, antialias: true, fadeDuration: 0 });
+  map3d.addControl(new maplibregl.AttributionControl({ compact: false, customAttribution: style === BLANK_STYLE ? "" : '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }), "bottom-right");
+  await new Promise(res => map3d.once("load", res));
+  const empty = { type: "FeatureCollection", features: [] };
+  for (const id of ["rings", "me", "trail", "sticks", "shadows", "planes", "path"]) map3d.addSource(id, { type: "geojson", data: empty });
+  if (style === BLANK_STYLE) map3d.addSource("grid", { type: "geojson", data: gridFC(o) }), map3d.addLayer({ id: "grid", type: "line", source: "grid", paint: { "line-color": "rgba(120,150,200,.10)", "line-width": 1 } });
+  map3d.addLayer({ id: "rings", type: "line", source: "rings", paint: { "line-color": "rgba(92,225,230,.35)", "line-width": 1.2, "line-dasharray": [2, 3] } });
+  map3d.addLayer({ id: "shadows", type: "fill", source: "shadows", paint: { "fill-color": "#000", "fill-opacity": 0.35 } });
+  map3d.addLayer({ id: "path", type: "line", source: "path", paint: { "line-color": "#9ef01a", "line-width": 2, "line-dasharray": [1, 3], "line-opacity": 0.8 } });
+  map3d.addLayer({ id: "me", type: "circle", source: "me", paint: { "circle-radius": 7, "circle-color": "#2f8cff", "circle-stroke-color": "#fff", "circle-stroke-width": 2.5, "circle-pitch-alignment": "map" } });
+  map3d.addLayer({ id: "trail", type: "fill-extrusion", source: "trail", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": 0, "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.32 } });
+  map3d.addLayer({ id: "sticks", type: "fill-extrusion", source: "sticks", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": 0, "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.45 } });
+  map3d.addLayer({ id: "planes", type: "fill-extrusion", source: "planes", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.95 } });
+  map3d.on("click", e => {
+    const f = map3d.queryRenderedFeatures([[e.point.x - 14, e.point.y - 14], [e.point.x + 14, e.point.y + 14]], { layers: ["planes", "sticks"] });
+    st.mapSel = f.length ? f[0].properties.hex : null;
+    if (!st.mapSel) { st.follow = false; $("#follow").classList.remove("on"); }
+  });
+  map3d.on("dragstart", () => { if (st.follow) { st.follow = false; $("#follow").classList.remove("on"); } });
+  map3d.on("moveend", scheduleFetch);
+  sel3dMarker = new maplibregl.Marker({ element: Object.assign(document.createElement("div"), { className: "sel3d" }), anchor: "left" });
+  ap3dMarkers = AIRPORTS.map(([code, , la, lo]) => {
+    const el = document.createElement("div"); el.className = "ap3d"; el.innerHTML = "<i></i>" + code;
+    return new maplibregl.Marker({ element: el, anchor: "left" }).setLngLat([lo, la]).addTo(map3d);
+  });
+}
+function gridFC(o) {
+  const f = [], step = 0.1, la0 = Math.round(o.lat), lo0 = Math.round(o.lon);
+  for (let k = -40; k <= 40; k++) {
+    f.push({ type: "Feature", geometry: { type: "LineString", coordinates: [[lo0 - 4, la0 + k * step], [lo0 + 4, la0 + k * step]] } });
+    f.push({ type: "Feature", geometry: { type: "LineString", coordinates: [[lo0 + k * step, la0 - 4], [lo0 + k * step, la0 + 4]] } });
+  }
+  return { type: "FeatureCollection", features: f };
+}
+// metres east/north -> lon/lat around a point
+const offLL = (lat, lon, e, n) => [lon + e / (111320 * Math.cos(lat * DEG)), lat + n / 110540];
+// simplified airliner outline (x = right, y = forward), unit length
+const PLANE_OUTLINE = [[0, 1], [.07, .86], [.08, .3], [.95, -.02], [.95, -.14], [.08, -.06], [.07, -.62], [.34, -.82], [.34, -.92], [0, -.86]];
+function planePoly(lat, lon, track, size) {
+  const t = track * DEG, c = Math.cos(t), sn = Math.sin(t);
+  const half = PLANE_OUTLINE.map(([x, y]) => [x, y]), full = half.concat(half.slice(1, -1).reverse().map(([x, y]) => [-x, y]));
+  const ring = full.map(([x, y]) => { const e = (x * c + y * sn) * size, n = (-x * sn + y * c) * size; return offLL(lat, lon, e, n); });
+  ring.push(ring[0]); return [ring];
+}
+function square(lat, lon, half) { const r = [[-half, -half], [half, -half], [half, half], [-half, half], [-half, -half]].map(([e, n]) => offLL(lat, lon, e, n)); return [r]; }
+function circleLine(o, km) { const pts = []; for (let a = 0; a <= 360; a += 6) { const [la, lo] = project(o.lat, o.lon, km * 1000, a); pts.push([lo, la]); } return pts; }
+
+function draw3d(items, now, sel) {
+  if (!map3d || !map3d.getSource("planes")) return;
+  // chase camera follows the selected plane from behind
+  if (st.follow && sel) {
+    // aim the camera so the plane (at its exaggerated height) sits in the middle of the screen
+    const pitch = 70, h = Math.max(30, sel.L.altFt * FT * (S.exag || 1)), ahead = h / Math.tan((90 - pitch) * DEG);
+    const c = project(sel.L.lat, sel.L.lon, ahead, sel.p.track);
+    map3d.jumpTo({ center: [c[1], c[0]], bearing: sel.p.track, pitch, zoom: 10.2 });
+  }
+  if (now - last3d < 120) return; last3d = now;
+  const z = map3d.getZoom(), cLat = map3d.getCenter().lat;
+  const mpp = 156543.03 * Math.cos(cLat * DEG) / Math.pow(2, z + 1); // metres per CSS pixel (512px tiles)
+  const size = Math.max(60, 13 * mpp), ex = S.exag || 1;
+  const planes = [], sticks = [], shadows = [], trail = [];
+  for (const it of items) {
+    const p = it.p, isSel = p.hex === st.mapSel;
+    const dim = st.routeFilter && !isSel && !routeMatch(p, st.routeFilter.from, st.routeFilter.to);
+    const col = isSel ? "#9ef01a" : dim ? "#2a3446" : BAND_COL[altBand(it.L.altFt)];
+    const h = Math.max(30, it.L.altFt * FT * ex), sz = size * (isSel ? 1.4 : 1);
+    planes.push({ type: "Feature", properties: { hex: p.hex, color: col, b: h, h: h + sz * 0.16 }, geometry: { type: "Polygon", coordinates: planePoly(it.L.lat, it.L.lon, p.track, sz) } });
+    sticks.push({ type: "Feature", properties: { hex: p.hex, color: col, h }, geometry: { type: "Polygon", coordinates: square(it.L.lat, it.L.lon, sz * 0.045) } });
+    shadows.push({ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: planePoly(it.L.lat, it.L.lon, p.track, sz * 0.9) } });
+  }
+  // selected: 3D trail curtain + 10-minute predicted path on the ground
+  let path = [];
+  if (sel) {
+    const p = sel.p; let pts;
+    if (p.demo) { pts = []; for (let k = 360; k > 0; k -= 15) { const [la, lo] = project(sel.L.lat, sel.L.lon, -p.gs * KT * k, p.track); pts.push([la, lo, sel.L.altFt - p.vr * k / 60]); } }
+    else pts = (p.trail || []).slice();
+    pts.push([sel.L.lat, sel.L.lon, sel.L.altFt]);
+    const w = size * 0.04;
+    for (let k = 1; k < pts.length; k++) {
+      const [a1, o1] = pts[k - 1], [a2, o2] = pts[k];
+      const brg = Math.atan2((o2 - o1) * Math.cos(a1 * DEG), a2 - a1), pe = Math.cos(brg) * w, pn = -Math.sin(brg) * w;
+      const ring = [offLL(a1, o1, pe, pn), offLL(a2, o2, pe, pn), offLL(a2, o2, -pe, -pn), offLL(a1, o1, -pe, -pn)]; ring.push(ring[0]);
+      trail.push({ type: "Feature", properties: { color: BAND_COL[altBand(pts[k][2])], h: Math.max(30, pts[k][2] * FT * ex) }, geometry: { type: "Polygon", coordinates: [ring] } });
+    }
+    const f = project(sel.L.lat, sel.L.lon, p.gs * KT * 600, p.track);
+    path = [{ type: "Feature", geometry: { type: "LineString", coordinates: [[sel.L.lon, sel.L.lat], [f[1], f[0]]] } }];
+    const el = sel3dMarker.getElement();
+    setHTML(el, `<div>${esc(flightLabel(p))}<small>${(sel.L.altFt >= 10000 ? (sel.L.altFt / 1000).toFixed(1) + "k" : fmt(sel.L.altFt))} ft</small></div>`);
+    sel3dMarker.setLngLat([sel.L.lon, sel.L.lat]).addTo(map3d);
+  } else sel3dMarker.remove();
+  const o = observer(), FC = features => ({ type: "FeatureCollection", features });
+  map3d.getSource("planes").setData(FC(planes));
+  map3d.getSource("sticks").setData(FC(sticks));
+  map3d.getSource("shadows").setData(FC(shadows));
+  map3d.getSource("trail").setData(FC(trail));
+  map3d.getSource("path").setData(FC(path));
+  if (o) {
+    map3d.getSource("me").setData(FC([{ type: "Feature", geometry: { type: "Point", coordinates: [o.lon, o.lat] } }]));
+    map3d.getSource("rings").setData(FC([10, 25, 50, 100].map(km => ({ type: "Feature", geometry: { type: "LineString", coordinates: circleLine(o, km) } }))));
+  }
+  const showAp = z >= 6; ap3dMarkers.forEach(m => { m.getElement().style.display = showAp ? "" : "none"; });
+}
+$("#follow").onclick = () => {
+  if (!st.mapSel) return toast("Tap a plane first, then press follow.");
+  st.follow = !st.follow; $("#follow").classList.toggle("on", st.follow);
+  if (!st.follow && map3d) map3d.easeTo({ pitch: 60, duration: 600 });
+};
 
 /* ---------------- details sheet ---------------- */
 function showSheet(id) { document.body.classList.add("sheet-open"); $("#scrim").hidden = false; ["detail", "settings", "overhead", "find"].forEach(k => $("#" + k).hidden = id !== k); }
@@ -1956,7 +2283,7 @@ function openDetail(hex) {
   }
   $("#d-links").innerHTML = links.join("");
   const sw = $("#d-switch");
-  if (S.mode === "map") { sw.textContent = "Find it in the sky (camera)"; sw.onclick = () => findInSky(hex); }
+  if (S.mode !== "ar") { sw.textContent = "Find it in the sky (camera)"; sw.onclick = () => findInSky(hex); }
   else { sw.textContent = "Show on radar map"; sw.onclick = () => focusOnMap(hex); }
   $("#d-grid")._h = null;
   renderDetailRoute(p); lookupRoute(p); lookupTimes(p);
@@ -2035,6 +2362,7 @@ function syncSettingsUI() {
   $("#s-fov").value = S.fov; $("#v-fov").textContent = S.fov + "°";
   $("#s-rad").value = S.radiusNm; $("#v-rad").textContent = S.radiusNm + " NM · " + Math.round(S.radiusNm * 1.852) + " km";
   $("#s-over").value = S.overKm; $("#v-over").textContent = S.overKm + " km"; $("#s-alert").checked = S.alert;
+  $("#s-exag").value = S.exag; $("#v-exag").textContent = S.exag + "×";
   $("#s-carto").value = S.cartoKey; $("#s-src").value = S.source; $("#s-proxy").value = S.proxy; $("#s-alt").value = S.obsAlt; $("#s-loc").value = S.loc; $("#s-demo").checked = S.demo;
 }
 $("#gear").onclick = () => { syncSettingsUI(); st.selectedHex = null; showSheet("settings"); };
@@ -2050,6 +2378,7 @@ $("#s-proxy").onchange = e => {
   if (v && !v.includes("{lat}")) { try { v = new URL(v).origin + "/api/aircraft?lat={lat}&lon={lon}&dist={dist}"; } catch (err) {} } // accept a bare worker URL
   S.proxy = v; e.target.value = v; save(); st.fetchErr = null; st.lastReq = 0; scheduleFetch();
 };
+$("#s-exag").oninput = e => { S.exag = +e.target.value; save(); syncSettingsUI(); };
 $("#s-carto").onchange = e => { S.cartoKey = e.target.value.trim(); save(); setTiles(); };
 $("#s-alt").onchange = e => { S.obsAlt = e.target.value.trim(); save(); };
 $("#s-loc").onchange = e => { S.loc = e.target.value.trim(); save(); st.planes.clear(); };

@@ -2585,10 +2585,10 @@ function ckWheel(e) { if (st.cam !== "cockpit") return; e.preventDefault(); setF
 function enterCockpit() {
   if (!map3d) return;
   document.body.classList.add("cockpit");
-  look.yaw = 0; look.pitch = -5; look.refYaw = null; look.gyro = haveOri(); setFov(BASE_FOV);
+  look.yaw = 0; look.pitch = -5; look.refYaw = null; look.gyro = false; setFov(BASE_FOV); // phone-tilt look is opt-in
   $("#h-gyro").classList.toggle("on", look.gyro);
   cockpitPointers(true);
-  setTimeout(() => toast(look.gyro ? "Turn and tilt your phone to look around · pinch to zoom" : "Drag to look around · pinch to zoom · double-tap to look ahead", 3500), 400);
+  setTimeout(() => toast("Drag to look around · pinch to zoom · tap the phone icon to look by tilting", 3500), 400);
   st.ckHdg = null; st.ckRoll = 0; st.ckPitch = null; st.ckT = 0;
   try { map3d.setCenterClampedToGround(false); } catch (e) {}
   try { map3d.setMaxPitch(180); } catch (e) {}

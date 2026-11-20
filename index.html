@@ -725,7 +725,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .tgt .al{font:500 10.5px var(--mono);color:var(--muted);margin-left:6px;text-transform:uppercase}
   .tgt .l2{font:500 11px var(--mono);color:#c4cddb;margin-top:1px}
   .tgt .l2 .up{color:var(--green)} .tgt .l2 .dn{color:var(--coral)}
-  .tgt.lo{--acc:var(--coral)} .tgt.hi{--acc:var(--violet)}
+  .tgt.mil{--acc:#c8b46a}
+  .tgt.lo{--acc:var(--coral)} .tgt.hi{--acc:var(--violet)} .tgt.gnd{--acc:#9aa4b3}
   .tgt.focus{--acc:var(--lock)}
   .tgt.focus .box{width:44px;height:44px;margin:-22px 0 0 -22px;animation:lock .9s ease-out}
   .tgt.focus .box i{width:11px;height:11px}
@@ -1042,7 +1043,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <canvas id="radar" width="288" height="288"></canvas>
 <div id="notice" class="glass" hidden></div>
 <div id="rfilter" class="glass" hidden></div>
-<div id="maplegend" class="glass"><span><i style="background:var(--coral)"></i>&lt;10k</span><span><i style="background:var(--amber)"></i>10–25k</span><span><i style="background:var(--violet)"></i>&gt;25k ft</span></div>
+<div id="maplegend" class="glass"><span><i style="background:var(--coral)"></i>&lt;10k</span><span><i style="background:var(--amber)"></i>10–25k</span><span><i style="background:var(--violet)"></i>&gt;25k ft</span><span><i style="background:#9aa4b3"></i>gnd</span><span><i style="background:#c8b46a"></i>mil</span></div>
 <div id="mapctl">
   <button class="glass" id="m-loc" aria-label="Center on me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
   <button class="glass only3d" id="follow" aria-label="Follow selected plane"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></button>
@@ -1093,6 +1094,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="tabs"><button data-t="flight" class="on">Flight</button><button data-t="route">Route</button></div>
   <div id="f-flight">
     <input type="text" id="f-q" placeholder="6E 6123, IndiGo, A320, VT-ITX or BLR-DEL" autocomplete="off" autocapitalize="characters">
+    <div class="chips" id="f-quick"><button data-q="military">Military</button><button data-q="helicopter">Helicopters</button><button data-q="private">Private</button><button data-q="parked">On the ground</button></div>
   </div>
   <div id="f-route" hidden>
     <div class="rt">
@@ -1177,7 +1179,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
     <div class="field">
       <div class="lbl">Tag colour = altitude</div>
-      <div class="legend"><span><i style="background:var(--coral)"></i>below 10k ft</span><span><i style="background:var(--amber)"></i>10–25k ft</span><span><i style="background:var(--violet)"></i>above 25k ft</span></div>
+      <div class="legend"><span><i style="background:var(--coral)"></i>below 10k ft</span><span><i style="background:var(--amber)"></i>10–25k ft</span><span><i style="background:var(--violet)"></i>above 25k ft</span><span><i style="background:#9aa4b3"></i>on the ground</span><span><i style="background:#c8b46a"></i>military</span></div>
     </div>
   </div>
 
@@ -1238,7 +1240,7 @@ const AIRLINES = {
   RBA:["BI","Royal Brunei"],UBG:["BS","US-Bangla"],RNA:["RA","Nepal Airlines"],VJC:["VJ","VietJet"],HVN:["VN","Vietnam Airlines"],
   GIA:["GA","Garuda"],PAL:["PR","Philippine Airlines"],EVA:["BR","EVA Air"],CAL:["CI","China Airlines"],AZA:["AZ","ITA Airways"],
   RJA:["RJ","Royal Jordanian"],MSR:["MS","EgyptAir"],KQA:["KQ","Kenya Airways"],SAA:["SA","South African"],AUA:["OS","Austrian"],FIN:["AY","Finnair"],SAS:["SK","SAS"],
-  JZR:["J9","Jazeera Airways"],KNE:["XY","flynas"],FAD:["F3","flyadeal"],IAW:["IA","Iraqi Airways"],PIA:["PK","PIA"],MAU:["MK","Air Mauritius"],
+  IFC:["","Indian Air Force"],JZR:["J9","Jazeera Airways"],KNE:["XY","flynas"],FAD:["F3","flyadeal"],IAW:["IA","Iraqi Airways"],PIA:["PK","PIA"],MAU:["MK","Air Mauritius"],
   AIQ:["FD","Thai AirAsia"],XAX:["D7","AirAsia X"],BTK:["ID","Batik Air"],MXD:["OD","Batik Air Malaysia"],CSC:["3U","Sichuan Airlines"],AFL:["SU","Aeroflot"],
   TAY:["3V","ASL Airlines"],GEC:["LH","Lufthansa Cargo"],CLX:["CV","Cargolux"],MPH:["MP","Martinair"],ABW:["RU","AirBridgeCargo"],QDA:["QD","Quikjet"],SJX:["JX","Starlux"]
 };
@@ -1247,6 +1249,9 @@ const TYPES = {
   A359:"A350-900",A35K:"A350-1000",A388:"A380",A306:"A300-600",B737:"737-700",B738:"737-800",B739:"737-900",B38M:"737 MAX 8",B39M:"737 MAX 9",
   B744:"747-400",B748:"747-8",B752:"757-200",B763:"767-300",B772:"777-200",B77L:"777-200LR",B77W:"777-300ER",B788:"787-8",B789:"787-9",B78X:"787-10",
   AT72:"ATR 72",AT75:"ATR 72-500",AT76:"ATR 72-600",DH8D:"Dash 8-400",E190:"Embraer E190",E195:"Embraer E195",E75L:"Embraer E175",
+  SU30:"Su-30MKI",MG29:"MiG-29",MIG29:"MiG-29",TJAS:"HAL Tejas",LCA:"HAL Tejas",RFAL:"Rafale",M2000:"Mirage 2000",JAGR:"Jaguar",HAWK:"Hawk",HJT36:"HAL Sitara",
+  C17:"C-17 Globemaster III",C30J:"C-130J Super Hercules",C130:"C-130 Hercules",IL76:"Il-76",AN32:"An-32",P8:"P-8I Poseidon",D228:"Dornier 228",E145:"ERJ-145",
+  ALH:"HAL Dhruv",LCH:"HAL Prachand",MI17:"Mi-17",MI8:"Mi-8",CH47:"Chinook",H60:"Black Hawk",PC7:"Pilatus PC-7",A400:"A400M",
   CRJ7:"CRJ-700",CRJ9:"CRJ-900",C208:"Cessna Caravan",C172:"Cessna 172",PC12:"Pilatus PC-12",BCS3:"A220-300",BCS1:"A220-100"
 };
 function airlineOf(cs) {
@@ -1256,9 +1261,39 @@ function airlineOf(cs) {
 }
 function flightLabel(p) {
   const a = airlineOf(p.flight);
-  return a ? a.iata + " " + a.num : (p.flight || p.reg || p.hex.toUpperCase());
+  return a && a.iata ? a.iata + " " + a.num : (p.flight || p.reg || p.hex.toUpperCase());
 }
 const typeName = t => TYPES[t] || t || "";
+
+// ---------- aircraft classes: shape + size on the map ----------
+const HELI = new Set("EC20 EC25 EC30 EC35 EC45 EC55 EC75 H125 H130 H135 H145 H155 H160 H175 H215 H225 AS32 AS50 AS55 AS65 B06 B105 B407 B412 B429 B430 B505 BK17 R22 R44 R66 S61 S64 S70 S76 S92 A109 A119 A139 A149 A169 A189 AW09 MI8 MI17 MI26 KA32 CH47 H47 H60 UH1 ALO3 ALH DHRUV LCH EH10 NH90 TIGR".split(" "));
+const BIZJET = new Set("C25A C25B C25C C25M C501 C510 C525 C550 C55B C560 C56X C650 C680 C68A C700 C750 CL30 CL35 CL60 GLEX GL5T GL6T GL7T GL8T G150 G200 G280 GLF2 GLF3 GLF4 GLF5 GLF6 GA5C GA6C GA7C GA8C GALX E50P E55P E545 E550 E135 E35L LJ31 LJ35 LJ40 LJ45 LJ55 LJ60 LJ70 LJ75 F2TH F900 FA10 FA20 FA50 FA6X FA7X FA8X PC24 H25A H25B H25C PRM1 HDJT BE40 SF50 EA50 ASTR WW24 C750".split(" "));
+const TPROP = new Set("AT43 AT44 AT45 AT46 AT72 AT73 AT75 AT76 DH8A DH8B DH8C DH8D DHC6 DHC7 D228 D328 SF34 SW4 B190 BE20 BE30 BE35 BE9L BE9T B350 PC12 PC6T C208 C08T TBM7 TBM8 TBM9 KODI M600 P180 AN26 AN32 AN12 C130 C30J L410 J328 E120 F50 SB20".split(" "));
+const LIGHT = new Set("C150 C152 C162 C170 C172 C175 C177 C180 C182 C185 C195 C206 C207 C210 P28A P28B P28R P28T PA18 PA22 PA24 PA28 PA31 PA32 PA34 PA44 PA46 DA20 DA40 DA42 DA50 DA62 SR20 SR22 S22T BE33 BE36 BE55 BE58 M20P M20T RV7 RV8 RV10 TB20 TB21 C42 CTSW G115 ZLIN Z42 VIRS GLID ULAC".split(" "));
+const HEAVY = new Set("A124 A225 A306 A30B A310 A332 A333 A338 A339 A342 A343 A345 A346 A359 A35K A388 B742 B744 B748 B74S B752 B753 B762 B763 B764 B772 B773 B77L B77W B778 B779 B788 B789 B78X IL76 IL96 MD11 DC10 C17 C5M".split(" "));
+const REGIONAL = new Set("E170 E175 E75L E75S E190 E195 E290 E295 CRJ1 CRJ2 CRJ7 CRJ9 CRJX BCS1 BCS3 A318 A319 B736 B737 RJ85 RJ1H SU95 AR85 F100 F70".split(" "));
+const FIGHTER = new Set("SU30 SU27 SU35 SU57 MG29 MIG29 MG21 MIG21 MG23 MG27 MG31 F16 F15 F18 FA18 F18S F22 F35 F5 F4 EUFI RFAL M2K M2000 MIR2 MIRA JAGR TJAS LCA TEJS TEJA J10 J20 JF17 GRIF TPHR TOR HAWK HJT36 IJT T38 T45 M346 L39 A10 B1 B2 B52 SR71".split(" "));
+// returns { kind: airliner|bizjet|turboprop|light|heli|fighter, size, label, private, mil }
+function acClass(p) {
+  const t = (p.type || "").toUpperCase(), c = p.category || "", airline = !!airlineOf(p.flight) && !p.mil;
+  if (FIGHTER.has(t) || (p.mil && c === "A6")) return { kind: "fighter", size: 0.85, label: "Military jet", mil: true };
+  if (p.mil) {
+    const base = acClassCivil(p, t, c, false);
+    return Object.assign(base, { mil: true, private: false, label: base.kind === "heli" ? "Military helicopter" : "Military aircraft" });
+  }
+  return acClassCivil(p, t, c, airline);
+}
+function acClassCivil(p, t, c, airline) {
+  if (c === "A7" || HELI.has(t)) return { kind: "heli", size: 0.78, label: "Helicopter" };
+  if (BIZJET.has(t)) return { kind: "bizjet", size: 0.72, label: airline ? "Business jet" : "Private jet", private: !airline };
+  if (LIGHT.has(t) || c === "A1" || c === "B1" || c === "B4") return { kind: "light", size: 0.6, label: airline ? "Light aircraft" : "Private aircraft", private: !airline };
+  if (TPROP.has(t)) return { kind: "turboprop", size: 0.82, label: "Turboprop" };
+  if (HEAVY.has(t) || c === "A5") return { kind: "airliner", size: 1.32, label: "Wide-body" };
+  if (REGIONAL.has(t)) return { kind: "airliner", size: 0.88, label: "Narrow-body" };
+  if (c === "A2" && !airline) return { kind: "bizjet", size: 0.72, label: "Private jet", private: true };
+  return { kind: "airliner", size: 1, label: c === "A4" ? "Large jet" : "Jet" };
+}
+const SKIP_CATS = new Set(["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7"]); // ground vehicles, obstacles
 
 /* ---------------- settings ---------------- */
 const KEY = EMBED ? "skyflight-demo" : "skyflight";
@@ -1422,8 +1457,9 @@ function scheduleFetch() {
 function ingest(j, now) {
   for (const a of (j.ac || j.aircraft || [])) {
     if (a.lat == null || a.lon == null) continue;
-    if (a.alt_baro === "ground") { st.planes.delete(a.hex); continue; }
-    const altFt = typeof a.alt_geom === "number" ? a.alt_geom : (typeof a.alt_baro === "number" ? a.alt_baro : null);
+    if (SKIP_CATS.has(a.category)) continue;
+    const gnd = a.alt_baro === "ground";
+    const altFt = gnd ? 0 : (typeof a.alt_geom === "number" ? a.alt_geom : (typeof a.alt_baro === "number" ? a.alt_baro : null));
     if (altFt == null) continue;
     const prev = st.planes.get(a.hex) || {};
     // turn rate (deg/s) from successive tracks, used to bank the cockpit camera
@@ -1433,11 +1469,13 @@ function ingest(j, now) {
       if (dtp > 0.5 && dtp < 30) { const tr = Math.max(-6, Math.min(6, wrap180(newTrack - prev.track) / dtp)); prev.turn = prev.turn == null ? tr : prev.turn * 0.4 + tr * 0.6; }
     }
     st.planes.set(a.hex, Object.assign(prev, {
-      hex: a.hex, flight: (a.flight || "").trim(), reg: a.r || "", type: a.t || "", desc: a.desc || "", op: a.ownOp || "",
+      hex: a.hex, flight: (a.flight || "").trim(), reg: a.r || "", type: a.t || "", desc: a.desc || "", op: a.ownOp || "", category: a.category || "", gnd,
+      mil: ((a.dbFlags || 0) & 1) === 1 || /^IFC\d/.test((a.flight || "").trim()),
       lat: a.lat, lon: a.lon, altFt, gs: a.gs || 0, track: a.track != null ? a.track : (a.true_heading || 0),
       vr: a.geom_rate != null ? a.geom_rate : (a.baro_rate || 0), squawk: a.squawk || "", t0: now - (a.seen_pos || 0) * 1000, seen: now
     }));
     const q = st.planes.get(a.hex), tr = q.trail || (q.trail = []), last = tr[tr.length - 1];
+    if (gnd) q.vr = 0;
     if (!last || last[0] !== a.lat || last[1] !== a.lon) { tr.push([a.lat, a.lon, altFt, Math.round(now / 1000)]); if (tr.length > 400) tr.shift(); }
   }
   for (const [k, p] of st.planes) if (now - p.seen > 30000) st.planes.delete(k);
@@ -1451,34 +1489,91 @@ function apiUrl(path) {
   if (S.proxy) { try { return new URL(path, S.proxy).href; } catch (e) {} }
   return null;
 }
+// ---------- route validation ----------
+// Free route databases map a callsign to a route; airlines reuse flight numbers, so the route can be stale,
+// reversed (the return flight) or multi-stop. Check each candidate against where the plane actually is.
+function sphGeo(a1, o1, a2, o2) { // angular distance (rad) and initial bearing (rad)
+  const p1 = a1 * DEG, p2 = a2 * DEG, dl = (o2 - o1) * DEG;
+  const d = 2 * Math.asin(Math.sqrt(Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2));
+  const brg = Math.atan2(Math.sin(dl) * Math.cos(p2), Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl));
+  return { d, brg };
+}
+// how well does the plane fit the leg A → B?  returns null if it doesn't fit
+function legFit(L, track, A, B) {
+  const Rk = 6371, ab = sphGeo(A.lat, A.lon, B.lat, B.lon), ap = sphGeo(A.lat, A.lon, L.lat, L.lon);
+  if (ab.d < 1e-5) return null;
+  const xt = Math.asin(Math.max(-1, Math.min(1, Math.sin(ap.d) * Math.sin(ap.brg - ab.brg))));
+  const at = Math.acos(Math.max(-1, Math.min(1, Math.cos(ap.d) / Math.cos(xt)))) * Math.sign(Math.cos(ap.brg - ab.brg) || 1);
+  const legKm = ab.d * Rk, xtKm = Math.abs(xt) * Rk, f = at / ab.d;
+  const toB = sphGeo(L.lat, L.lon, B.lat, B.lon), remKm = toB.d * Rk, fromA = ap.d * Rk;
+  const hdgDiff = Math.abs(wrap180(toB.brg / DEG - track));
+  const nearEnd = remKm < 40 || fromA < 40;          // climbing out or on approach: any heading is fine
+  const lim = Math.max(45, 0.08 * legKm);
+  if (xtKm > lim) return null;                          // too far off the path
+  if (f < -0.08 || f > 1.08) return null;              // not between the two airports
+  if (!nearEnd && hdgDiff > 75) return null;           // flying the wrong way
+  return { xtKm, f, hdgDiff, score: xtKm / lim + hdgDiff / 180 };
+}
+// candidate = list of airports [{code,name,city,lat,lon}, ...] (2 or more for multi-stop)
+function validateRoute(p, aps, src) {
+  const L = livePlane(p, Date.now()), have = aps.filter(a => a && a.lat != null && a.lon != null);
+  if (have.length !== aps.length || aps.length < 2) return { ok: true, unchecked: true, A: aps[0], B: aps[aps.length - 1], src };
+  let best = null;
+  for (let i = 0; i < aps.length - 1; i++) {
+    const fw = legFit(L, p.track, aps[i], aps[i + 1]); if (fw && (!best || fw.score < best.score)) best = { ...fw, A: aps[i], B: aps[i + 1], rev: false };
+    const bw = legFit(L, p.track, aps[i + 1], aps[i]); if (bw && (!best || bw.score + 0.15 < best.score)) best = { ...bw, A: aps[i + 1], B: aps[i], rev: true };
+  }
+  return best ? { ok: true, ...best, src, multi: aps.length > 2 } : { ok: false, A: aps[0], B: aps[aps.length - 1], src };
+}
+function routeFromFit(fit, claimed) {
+  const A = fit.A, B = fit.B, notes = [];
+  if (fit.rev) notes.push(`Database lists ${claimed}; this plane is flying the opposite way, so it's shown reversed.`);
+  if (fit.multi && !fit.rev) notes.push(`Multi-stop flight (${claimed}); showing the leg it's flying now.`);
+  if (fit.unchecked) notes.push("Route from the database, not yet checked against the plane's position.");
+  return { ok: true, from: A.code, to: B.code, fromName: A.city, toName: B.city, fromAp: A, toAp: B, verified: !fit.unchecked, src: fit.src, note: notes.join(" ") };
+}
+const apFromLol = (a, c) => a ? { code: c, name: a.name || "", city: a.location || "", lat: a.lat, lon: a.lon } : { code: c, name: "", city: "" };
+function lolCandidate(x) {
+  if (!x || !x._airport_codes_iata || x._airport_codes_iata === "unknown") return null;
+  const codes = x._airport_codes_iata.split("-"), aps = Array.isArray(x._airports) ? x._airports : [];
+  return codes.map((c, i) => apFromLol(aps[i], c));
+}
+// pick the first candidate that fits the plane; otherwise say what was rejected
+function decideRoute(p, cands) {
+  const claimed = cands.map(c => c.aps.map(a => a.code).join("→"));
+  // score every candidate; prefer a close forward match, then a reversed one
+  let best = null;
+  cands.forEach((c, k) => {
+    const fit = validateRoute(p, c.aps, c.src); if (!fit.ok) return;
+    const sc = fit.unchecked ? 5 : (fit.score + (fit.rev ? 0.35 : 0) + k * 0.05);
+    if (!best || sc < best.sc) best = { sc, fit, claimed: c.aps.map(a => a.code).join("→") };
+  });
+  if (best) return routeFromFit(best.fit, best.claimed);
+  if (cands.length) return { ok: false, rejected: claimed[0], note: `Route unknown. The databases list ${[...new Set(claimed)].join(" or ")} for this callsign, but this plane's position and heading don't match, so it isn't shown.` };
+  return { ok: false, note: "Route not in the free databases. Try the links below." };
+}
 async function lookupRoute(p) {
   if (!p.flight || p.demo || routeCache.has(p.flight) || routePending.has(p.flight)) return;
   routePending.add(p.flight);
-  let res = { ok: false, note: "Route not in the free databases. Try the links below." };
+  const cands = []; let reached = false;
   // 1) adsbdb: origin/destination with names, cities and coordinates
   try {
     const u = apiUrl("/api/callsign/" + encodeURIComponent(p.flight)) || "https://api.adsbdb.com/v0/callsign/" + encodeURIComponent(p.flight);
-    const j = await fetchJSON(u, 6000), fr = j && j.response && j.response.flightroute;
+    const j = await fetchJSON(u, 6000), fr = j && j.response && j.response.flightroute; reached = true;
     if (fr && fr.origin && fr.destination) {
       const A = a => ({ code: a.iata_code || a.icao_code, name: a.name || "", city: a.municipality || "", lat: a.latitude, lon: a.longitude });
-      const o = A(fr.origin), d = A(fr.destination);
-      res = { ok: true, from: o.code, to: d.code, fromName: o.city, toName: d.city, fromAp: o, toAp: d, note: "" };
+      cands.push({ src: "adsbdb", aps: [A(fr.origin), ...(fr.midpoint ? [A(fr.midpoint)] : []), A(fr.destination)] });
     }
   } catch (e) {}
-  // 2) adsb.lol routeset as a fallback
-  if (!res.ok) try {
+  // 2) adsb.lol routeset: a second opinion (checked too, not just a fallback)
+  try {
     const routeUrl = apiUrl("/api/route") || "https://api.adsb.lol/api/0/routeset";
     const j = await fetchJSON(routeUrl, 6000, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planes: [{ callsign: p.flight, lat: p.lat, lng: p.lon }] }) });
-    const x = Array.isArray(j) ? j[0] : null;
-    if (x && x._airport_codes_iata && x._airport_codes_iata !== "unknown") {
-      const codes = x._airport_codes_iata.split("-"), aps = Array.isArray(x._airports) ? x._airports : [];
-      const A = (a, c) => a ? { code: c, name: a.name || "", city: a.location || "", lat: a.lat, lon: a.lon } : { code: c, name: "", city: "" };
-      const o = A(aps[0], codes[0]), d = A(aps[aps.length - 1], codes[codes.length - 1]);
-      res = { ok: true, from: o.code, to: d.code, fromName: o.city, toName: d.city, fromAp: o, toAp: d,
-              note: x.plausible === false ? "Route not verified for this flight today." : "" };
-    }
-  } catch (e) { if (!res.ok) res.note = "Couldn't reach the route services from this browser."; }
+      body: JSON.stringify({ planes: [{ callsign: p.flight, lat: p.lat, lng: p.lon }] }) }); reached = true;
+    const aps = lolCandidate(Array.isArray(j) ? j[0] : null);
+    if (aps) cands.push({ src: "adsb.lol", aps });
+  } catch (e) {}
+  const res = reached ? decideRoute(p, cands) : { ok: false, note: "Couldn't reach the route services from this browser." };
   routeCache.set(p.flight, res); routePending.delete(p.flight);
   if (st.selectedHex === p.hex) renderDetailRoute(p);
 }
@@ -1516,7 +1611,24 @@ function gcKm(a1, o1, a2, o2) {
   const h = Math.sin(dA / 2) ** 2 + Math.cos(a1 * DEG) * Math.cos(a2 * DEG) * Math.sin(dO / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-const routeOf = p => p.demo ? p.route : routeCache.get(p.flight);
+function routeOf(p) {
+  if (p.demo) return p.route;
+  const r = routeCache.get(p.flight);
+  // airline-provided origin/destination from FlightAware wins over the free databases
+  const T = timesCache.get(p.flight);
+  if (T && !T.err && T.origin && T.destination && (T.origin.iata || T.origin.icao) && (T.destination.iata || T.destination.icao)) {
+    const oc = T.origin.iata || T.origin.icao, dc = T.destination.iata || T.destination.icao;
+    const pick = (code, city, name) => {
+      const known = r && r.ok ? [r.fromAp, r.toAp].find(a => a && a.code === code) : null;
+      const ap = AIRPORTS.find(a => a[0] === code);
+      return Object.assign({ code, city: city || "", name: name || "" }, known ? { lat: known.lat, lon: known.lon } : ap ? { lat: ap[2], lon: ap[3] } : {});
+    };
+    const o = pick(oc, T.origin.city, T.origin.name), d = pick(dc, T.destination.city, T.destination.name);
+    return { ok: true, from: oc, to: dc, fromName: o.city, toName: d.city, fromAp: o, toAp: d, verified: true, src: "FlightAware", note: "" };
+  }
+  if (r && r.ok && p.routeBad) return { ok: false, note: p.routeBad };
+  return r;
+}
 
 /* ---------------- demo ---------------- */
 const DEMO = [
@@ -1567,6 +1679,24 @@ function demoTick(o) {
       route: demoRoute(AIRPORTS[i1][0], AIRPORTS[i2][0]), times: demoTimes(AIRPORTS[i1][0], AIRPORTS[i2][0], i + 20),
       altFt: 8000 + Math.round(rnd() * 310) * 100, gs: 260 + rnd() * 220, track: rnd() * 360, vr: 0 });
   }
+  // a few non-airliners and aircraft parked at Bengaluru airport, so every icon type shows up
+  const priv = { ok: false, note: "Private flight: no route is published." };
+  const extra = [
+    ["demoh1", "VTHEL", "H125", "A7", 12.99, 77.63, 1500, 90, 40, false, priv],
+    ["demoh2", "VTAHT", "A139", "A7", 13.03, 77.55, 2200, 120, 300, false, priv],
+    ["demob1", "VTJSK", "C56X", "A2", 13.08, 77.48, 21000, 380, 330, false, priv],
+    ["demol1", "VTPAK", "C172", "A1", 12.92, 77.66, 3500, 95, 120, false, priv],
+    ["demot1", "IGO7311", "AT76", "A2", 12.86, 77.52, 13000, 240, 200, false, demoRoute("BLR", "MYQ")],
+    ["demom1", "IFC4512", "SU30", "A6", 12.97, 77.72, 9000, 420, 250, false, priv, true],
+    ["demom2", "IFC2201", "C17", "A5", 13.16, 77.58, 6500, 210, 160, false, priv, true],
+    ["demom3", "IFC0731", "ALH", "A7", 12.955, 77.675, 800, 70, 90, false, priv, true],
+    ["demom4", "IFC0090", "C30J", "A3", 12.9505, 77.6650, 0, 0, 90, true, priv, true]
+  ];
+  const BLRG = [[13.2003, 77.7045, 15, "IGO2201", "A20N"], [13.2008, 77.7052, 15, "AIC612", "A21N"], [13.2013, 77.7059, 15, "AKJ88", "B38M"],
+                [13.1990, 77.7075, 195, "UAE567", "B77W"], [13.1984, 77.7083, 195, "SIA510", "A359"], [13.1995, 77.7010, 270, "IGO334", "A20N"]];
+  BLRG.forEach(([la, lo, tr, cs, ty], i) => extra.push(["demog" + i, cs, ty, "", la, lo, 0, i === 5 ? 14 : 0, tr, true, demoRoute("BLR", ["DEL", "BOM", "HYD", "DXB", "SIN", "MAA"][i])]));
+  for (const [hex, flight, type, category, lat, lon, altFt, gs, track, gnd, route, mil] of extra)
+    st.planes.set(hex, { hex, demo: true, mil: !!mil, flight, type, category, reg: flight.startsWith("VT") ? flight.replace(/^VT/, "VT-") : "", desc: "", op: "", lat, lon, altFt, gs, track, vr: 0, gnd, squawk: "", t0: now, seen: now, route });
   st.lastFetch = now; st.source = "demo";
 }
 
@@ -1587,12 +1717,15 @@ function edgeChip(i) {
   $("#layer").appendChild(el); st.edges[i] = el; return el;
 }
 function livePlane(p, now) {
-  const dt = Math.max(0, Math.min(60, (now - p.t0) / 1000));
+  const dt = Math.max(0, Math.min(p.gnd ? 15 : 60, (now - p.t0) / 1000));
   const [lat, lon] = project(p.lat, p.lon, p.gs * KT * dt, p.track);
+  if (p.gnd) { const o = observer(); return { lat, lon, altFt: o ? o.alt / FT : 0, gnd: true }; }
   return { lat, lon, altFt: p.altFt + p.vr * dt / 60 };
 }
+const fmtAlt = L => L.gnd ? "On ground" : fmt(L.altFt) + " ft";
+const shortAlt = L => L.gnd ? "GND" : (L.altFt >= 10000 ? (L.altFt / 1000).toFixed(1) + "k" : fmt(L.altFt)) + " ft";
 const trend = vr => vr > 300 ? '<span class="up">▲</span>' : vr < -300 ? '<span class="dn">▼</span>' : "";
-const altBand = ft => ft < 10000 ? "lo" : ft > 25000 ? "hi" : "";
+const altBand = (ft, gnd) => gnd ? "gnd" : ft < 10000 ? "lo" : ft > 25000 ? "hi" : "";
 
 function frame() {
   const W = innerWidth, H = innerHeight, now = Date.now(), o = observer(), isMap = S.mode === "map" && !!map, is3d = S.mode === "3d" && !!map3d;
@@ -1615,7 +1748,7 @@ function frame() {
     const sel = st.mapSel ? items.find(i => i.p.hex === st.mapSel) : null;
     if (st.mapSel && !sel) st.mapSel = null;
     st.focusHex = sel ? sel.p.hex : null;
-    if (sel) { lookupRoute(sel.p); loadTrace(sel.p); }
+    if (sel) { lookupRoute(sel.p); loadTrace(sel.p); lookupTimes(sel.p); }
     if (isMap) drawMap(items, now, hdg); else draw3d(items, now, sel);
     renderRouteFilterChip();
     renderTop(o, items.length, hdg, pitch);
@@ -1624,20 +1757,20 @@ function frame() {
     if (st.selectedHex) { updateDetail(items.find(i => i.p.hex === st.selectedHex)); tickDetailRoute(); }
     requestAnimationFrame(frame); return;
   }
-  items = items.filter(i => i.ground <= S.radiusNm * 1852 || i.p.hex === st.arTarget);
+  items = items.filter(i => (i.ground <= S.radiusNm * 1852 && (!i.L.gnd || i.ground < 5000)) || i.p.hex === st.arTarget);
 
   let focus = null;
-  for (const it of items) if (it.ang < 9 && it.el > -1 && (!focus || it.ang < focus.ang)) focus = it;
+  for (const it of items) if (it.ang < 9 && (it.el > -1 || it.L.gnd) && (!focus || it.ang < focus.ang)) focus = it;
   st.focusHex = focus ? focus.p.hex : null;
-  if (focus) lookupRoute(focus.p);
+  if (focus) { lookupRoute(focus.p); if (focus.ang < 4) lookupTimes(focus.p); }
 
   // on-screen targets, nearest first, greedy de-clutter
   const placed = [], seen = new Set();
   items.filter(i => i.on).sort((a, b) => a.dist - b.dist).forEach(it => {
     const el = labelFor(it.p.hex); seen.add(it.p.hex);
     const a = airlineOf(it.p.flight);
-    const fn = flightLabel(it.p), al = a ? a.name : (typeName(it.p.type) || "");
-    const l2 = `${esc(it.p.type || "—")} · ${fmt(it.L.altFt)} ft ${trend(it.p.vr)} · ${(it.dist / 1000).toFixed(it.dist < 10000 ? 1 : 0)} km`;
+    const kc = acClass(it.p), fn = flightLabel(it.p), al = kc.mil ? (a ? a.name : kc.label) : a ? a.name : (kc.private || kc.kind === "heli" ? kc.label : (typeName(it.p.type) || ""));
+    const l2 = `${esc(it.p.type || "—")} · ${it.L.gnd ? "on ground" : fmt(it.L.altFt) + " ft " + trend(it.p.vr)} · ${(it.dist / 1000).toFixed(it.dist < 10000 ? 1 : 0)} km`;
     const fnEl = el.querySelector(".fn"), alEl = el.querySelector(".al"), tag = el.querySelector(".tag");
     if (fnEl.textContent !== fn) fnEl.textContent = fn;
     if (alEl.textContent !== al) alEl.textContent = al;
@@ -1654,7 +1787,7 @@ function frame() {
     tag.style.left = (-w / 2 + shiftX) + "px"; tag.style.top = (-lift - h) + "px";
     const stem = el.querySelector(".stem"); stem.style.top = (-lift) + "px"; stem.style.height = Math.max(0, lift - gap / 2 - 4) + "px";
     el.style.transform = `translate(${it.x.toFixed(1)}px,${it.y.toFixed(1)}px)`;
-    el.className = "tgt " + altBand(it.L.altFt) + (it.p.hex === st.focusHex ? " focus" : "") + (it.el < 0 ? " below" : "");
+    el.className = "tgt " + (it.p.mil ? "mil" : altBand(it.L.altFt, it.L.gnd)) + (it.p.hex === st.focusHex ? " focus" : "") + (it.el < 0 ? " below" : "");
     el.hidden = false;
   });
   for (const [hex, el] of st.labels) if (!seen.has(hex)) { if (!st.planes.has(hex)) { el.remove(); st.labels.delete(hex); } else el.hidden = true; }
@@ -1676,7 +1809,7 @@ function frame() {
     placed.push({ x, y, w: ew, h: eh });
     el.style.transform = `translate(${x.toFixed(0)}px,${y.toFixed(0)}px)`;
     el.querySelector("svg").style.transform = `rotate(${(th / DEG).toFixed(0)}deg)`;
-    el.querySelector("svg").style.color = `var(--${altBand(it.L.altFt) === "lo" ? "coral" : altBand(it.L.altFt) === "hi" ? "violet" : "amber"})`;
+    el.querySelector("svg").style.color = BAND_COL[altBand(it.L.altFt, it.L.gnd)];
     const b = el.querySelector("b"), sp = el.querySelector("span"), txt = flightLabel(it.p), deg = Math.round(it.ang) + "°";
     if (b.textContent !== txt) b.textContent = txt; if (sp.textContent !== deg) sp.textContent = deg;
     el.hidden = false;
@@ -1713,7 +1846,7 @@ function drawTape(items, hdg) {
   for (const it of items) {
     const dlt = wrap180(it.az - hdg); if (Math.abs(dlt) > span / 2) continue;
     const x = W / 2 + dlt * ppd, foc = it.p.hex === st.focusHex;
-    const band = altBand(it.L.altFt);
+    const band = altBand(it.L.altFt, it.L.gnd);
     g.fillStyle = foc ? "#9ef01a" : band === "lo" ? "#ff8a5b" : band === "hi" ? "#a78bfa" : "#ffb547";
     g.beginPath(); g.moveTo(x, H - 11); g.lineTo(x - 5, H - 2); g.lineTo(x + 5, H - 2); g.closePath(); g.fill();
   }
@@ -1739,7 +1872,7 @@ function drawRadar(items, hdg, tanHalf) {
   g.fillStyle = "#ff6b6b"; g.font = "700 26px 'Chakra Petch',sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
   g.fillText("N", Math.sin(nA) * R * 0.8, -Math.cos(nA) * R * 0.8);
   for (const it of items) {
-    const r = Math.min(1, it.ground / range) * (R - 10), a = (it.az - hdg) * DEG, band = altBand(it.L.altFt), foc = it.p.hex === st.focusHex;
+    const r = Math.min(1, it.ground / range) * (R - 10), a = (it.az - hdg) * DEG, band = altBand(it.L.altFt, it.L.gnd), foc = it.p.hex === st.focusHex;
     g.fillStyle = foc ? "#9ef01a" : band === "lo" ? "#ff8a5b" : band === "hi" ? "#a78bfa" : "#ffb547";
     g.beginPath(); g.arc(Math.sin(a) * r, -Math.cos(a) * r, foc ? 8 : 6, 0, Math.PI * 2); g.fill();
   }
@@ -1791,12 +1924,12 @@ function renderCard(focus, items, hdg) {
       <div class="r1"><div><div class="cap">${esc(a ? a.name : (p.op || "Aircraft"))}</div><div class="fno">${esc(flightLabel(p))}</div></div>${route}</div>
       <div class="perf"></div>
       <div class="stats">
-        <div><span class="cap">Alt</span>${fmt(focus.L.altFt)}<small>ft</small></div>
+        <div><span class="cap">Alt</span>${focus.L.gnd ? "GND" : fmt(focus.L.altFt) + "<small>ft</small>"}</div>
         <div><span class="cap">Speed</span>${fmt(p.gs)}<small>kt</small></div>
         <div><span class="cap">Dist</span>${(focus.dist / 1000).toFixed(1)}<small>km</small></div>
         <div><span class="cap">V/S</span>${p.vr > 0 ? "+" : ""}${fmt(p.vr)}<small>fpm</small></div>
       </div>
-      <div class="foot"><span><b>${esc(typeName(p.type) || "—")}</b>${p.reg ? " · " + esc(p.reg) : ""}</span><span>${cardEta(p)}Tap for details ›</span></div>`);
+      <div class="foot"><span><b>${esc(typeName(p.type) || acClass(p).label)}</b>${acClass(p).mil ? " · military" : acClass(p).private ? " · private" : acClass(p).kind === "heli" ? " · helicopter" : ""}${p.gnd ? (p.gs > 3 ? " · taxiing" : " · parked") : ""}${p.reg ? " · " + esc(p.reg) : ""}</span><span>${cardEta(p)}Tap for details ›</span></div>`);
     card.onclick = () => openDetail(p.hex);
   } else {
     let m, t = "Aim at a plane", go = '<div class="go">Nothing overhead? Tap for the radar map ›</div>';
@@ -1818,7 +1951,7 @@ function predictOverhead(o, now) {
   const out = [], lim = S.overKm * 1000;
   if (!o) return out;
   for (const p of st.planes.values()) {
-    if (!p.gs || p.gs < 40) continue;
+    if (p.gnd || !p.gs || p.gs < 40) continue;
     const L = livePlane(p, now), v = enu(o, L.lat, L.lon, L.altFt * FT);
     const pe = v[0], pn = v[1], sp = p.gs * KT, ve = sp * Math.sin(p.track * DEG), vn = sp * Math.cos(p.track * DEG);
     const t = -(pe * ve + pn * vn) / (sp * sp);           // seconds until closest approach
@@ -1896,6 +2029,12 @@ async function loadTrace(p) {
     // fill missing altitudes from neighbours
     for (let i = 0; i < pts.length; i++) if (pts[i][2] == null) pts[i][2] = i ? pts[i - 1][2] : 0;
     traceCache.set(p.hex, { at: Date.now(), pts, source: j.source });
+    // if the track starts low (i.e. at take-off) far from the claimed origin, the route is wrong for this flight
+    const r = routeCache.get(p.flight);
+    if (r && r.ok && r.fromAp && r.fromAp.lat != null && pts.length && pts[0][2] != null && pts[0][2] < 4000) {
+      const km = gcKm(pts[0][0], pts[0][1], r.fromAp.lat, r.fromAp.lon);
+      if (km > 45) p.routeBad = `Route unknown. The database says this flight departed ${r.from}, but its track starts ${Math.round(km)} km away from there, so it isn't shown.`;
+    }
   } catch (e) { traceCache.set(p.hex, { at: Date.now(), err: "fail" }); }
 }
 // great-circle points between two lat/lon pairs
@@ -1941,9 +2080,33 @@ function flightPath(sel) {
 const AIRPORTS = [["BLR","Bengaluru",13.1986,77.7066],["MAA","Chennai",12.9941,80.1709],["HYD","Hyderabad",17.2403,78.4294],["BOM","Mumbai",19.0896,72.8656],
   ["DEL","Delhi",28.5562,77.1000],["COK","Kochi",10.1520,76.4019],["GOI","Goa",15.3808,73.8314],["CCU","Kolkata",22.6547,88.4467],["CJB","Coimbatore",11.0300,77.0434],
   ["TRV","Thiruvananthapuram",8.4821,76.9201],["PNQ","Pune",18.5821,73.9197],["AMD","Ahmedabad",23.0772,72.6347],["IXE","Mangaluru",12.9613,74.8901],
-  ["MYQ","Mysuru",12.2300,76.6558],["HBX","Hubballi",15.3617,75.0849],["IXM","Madurai",9.8345,78.0934],["TRZ","Tiruchirappalli",10.7654,78.7097],["VGA","Vijayawada",16.5304,80.7968]];
-const BAND_COL = { lo: "#ff8a5b", "": "#ffb547", hi: "#a78bfa" };
+  ["MYQ","Mysuru",12.2300,76.6558],["HAL","HAL Airport (Bengaluru)",12.9499,77.6682],["YLK","Yelahanka AFS",13.1357,77.6061],["HBX","Hubballi",15.3617,75.0849],["IXM","Madurai",9.8345,78.0934],["TRZ","Tiruchirappalli",10.7654,78.7097],["VGA","Vijayawada",16.5304,80.7968]];
+const BAND_COL = { lo: "#ff8a5b", "": "#ffb547", hi: "#a78bfa", gnd: "#9aa4b3" };
 const PLANE_PATH = new Path2D("M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z");
+// all icons are drawn in a 24x24 box, nose up, centred near (11.5, 12.5)
+const MIL_COL = "#c8b46a"; // khaki for military
+const ICONS = {
+  fighter: new Path2D("M11.5 1.5c.7 0 1.1 1.3 1.1 2.8v4.3l7.9 7.4v1.9l-7.9-3.2v3.2l2.8 2.3v1.4l-3.9-1-3.9 1v-1.4l2.8-2.3v-3.2l-7.9 3.2V16l7.9-7.4V4.3c0-1.5.4-2.8 1.1-2.8z"),
+  airliner: PLANE_PATH,
+  bizjet: new Path2D("M11.5 2c.8 0 1.3 1.2 1.3 2.6v6l6.2 3.9v1.6l-6.2-1.8v4.3l2.4 1.8v1.3l-3.7-1-3.7 1v-1.3l2.4-1.8v-4.3L4 16.1v-1.6l6.2-3.9v-6C10.2 3.2 10.7 2 11.5 2z"),
+  turboprop: new Path2D("M11.5 2.2c.8 0 1.3 1 1.3 2.3v3.8h8.4v2.4l-8.4 1.1v5.4l3 1.7v1.5l-4.3-.9-4.3.9v-1.5l3-1.7v-5.4l-8.4-1.1V8.3h8.4V4.5c0-1.3.5-2.3 1.3-2.3zM5.2 6.8h1.8v2H5.2zM16 6.8h1.8v2H16z"),
+  light: new Path2D("M10.6 3.6h1.8v4.2h8.6v2.3h-8.6v5.6l2.7 1.2v1.5h-7.2v-1.5l2.7-1.2v-5.6H2V7.8h8.6z"),
+  heli: new Path2D("M11.5 5.5a3 3 0 0 1 3 3V12a3 3 0 0 1-2.2 2.9V20h2.4v1.4H8.3V20h2.4v-5.1A3 3 0 0 1 8.5 12V8.5a3 3 0 0 1 3-3z")
+};
+// draw one aircraft at (x, y) on a 2D canvas, rotated to its track
+function drawAircraft(g, x, y, p, scale, fill, t) {
+  const k = acClass(p), sc = scale * k.size * (p.gnd ? 0.85 : 1);
+  g.save(); g.translate(x, y); g.rotate(p.track * DEG); g.scale(sc, sc); g.translate(-11.5, -12.5);
+  const path = ICONS[k.kind];
+  g.lineWidth = 2.4 / Math.max(0.6, k.size); g.lineJoin = "round"; g.strokeStyle = "rgba(4,7,12,.9)"; g.stroke(path);
+  g.fillStyle = fill; g.fill(path);
+  if (k.kind === "heli") { // spinning rotor
+    const a = ((t || performance.now() / 1000) * (p.gnd && p.gs < 5 ? 0.6 : 9)) % Math.PI;
+    g.translate(11.5, 10); g.strokeStyle = fill; g.lineWidth = 1.6; g.lineCap = "round";
+    for (const r of [a, a + Math.PI / 2]) { g.beginPath(); g.moveTo(-9 * Math.cos(r), -9 * Math.sin(r)); g.lineTo(9 * Math.cos(r), 9 * Math.sin(r)); g.stroke(); }
+  }
+  g.restore();
+}
 let map = null, mapcv = null, leafletP = null, tiles = null, tilesLabels = null;
 function setTiles() {
   if (!map || EMBED) return;
@@ -2109,7 +2272,7 @@ function drawMap(items, now, hdg) {
   const labels = [];
   for (const it of sorted) {
     const q = pt(it.L.lat, it.L.lon); if (q.x < -30 || q.x > W + 30 || q.y < -30 || q.y > H + 30) continue;
-    const isSel = it.p.hex === st.mapSel, col = isSel ? "#9ef01a" : BAND_COL[altBand(it.L.altFt)];
+    const isSel = it.p.hex === st.mapSel, col = isSel ? "#9ef01a" : it.p.mil ? MIL_COL : BAND_COL[altBand(it.L.altFt, it.L.gnd)];
     const dim = st.routeFilter && !isSel && !routeMatch(it.p, st.routeFilter.from, st.routeFilter.to);
     g.globalAlpha = dim ? 0.18 : 1;
     st.mapPts.push({ hex: it.p.hex, x: q.x, y: q.y });
@@ -2117,19 +2280,18 @@ function drawMap(items, now, hdg) {
       g.strokeStyle = "rgba(92,225,230,.9)"; g.lineWidth = 1.5; g.setLineDash([3, 3]);
       g.beginPath(); g.arc(q.x, q.y, 16 + Math.sin(t * 4) * 1.5, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
     }
-    const sc = (z < 7 ? 0.75 : z < 9 ? 0.95 : 1.1) * (isSel ? 1.4 : 1);
-    g.save(); g.translate(q.x, q.y); g.rotate(it.p.track * DEG); g.scale(sc, sc); g.translate(-11.5, -12.5);
-    if (isSel) { g.shadowColor = "rgba(158,240,26,.9)"; g.shadowBlur = 16; }
-    g.lineWidth = 2.4; g.lineJoin = "round"; g.strokeStyle = "rgba(4,7,12,.9)"; g.stroke(PLANE_PATH);
-    g.fillStyle = col; g.fill(PLANE_PATH);
-    g.restore(); g.globalAlpha = 1;
-    if (isSel || (!dim && (z >= 8.5 || items.length < 25 || st.routeFilter))) labels.push({ it, q, isSel });
+    // at airport zoom, aircraft grow so parked planes at gates are easy to tell apart
+    const sc = (z < 7 ? 0.75 : z < 9 ? 0.95 : z < 13 ? 1.1 : z < 15 ? 1.5 : 2.1) * (isSel ? 1.4 : 1);
+    if (isSel) { g.save(); g.shadowColor = "rgba(158,240,26,.9)"; g.shadowBlur = 16; drawAircraft(g, q.x, q.y, it.p, sc, col, t); g.restore(); }
+    else drawAircraft(g, q.x, q.y, it.p, sc, col, t);
+    g.globalAlpha = 1;
+    if (isSel || (!dim && (it.L.gnd ? z >= 13.5 : (z >= 8.5 || items.length < 25 || st.routeFilter)))) labels.push({ it, q, isSel });
   }
   labels.sort((a, b) => b.isSel - a.isSel);
   const placed = [];
   g.textBaseline = "middle"; g.textAlign = "left";
   for (const { it, q, isSel } of labels) {
-    const t1 = flightLabel(it.p), t2 = (it.L.altFt >= 10000 ? (it.L.altFt / 1000).toFixed(1) + "k" : fmt(it.L.altFt)) + " ft";
+    const t1 = flightLabel(it.p), t2 = (it.p.mil ? "MIL · " : "") + shortAlt(it.L);
     g.font = "700 12px " + DISP; const w1 = g.measureText(t1).width;
     g.font = "500 10px " + MONO; const w2 = g.measureText(t2).width;
     const w = w1 + w2 + 22, h = 20, x = q.x + 14, y = q.y - 10;
@@ -2137,7 +2299,7 @@ function drawMap(items, now, hdg) {
     placed.push({ x, y, w, h });
     g.fillStyle = isSel ? "rgba(18,30,6,.94)" : "rgba(8,13,22,.8)"; rr(g, x, y, w, h, 6); g.fill();
     g.strokeStyle = isSel ? "rgba(158,240,26,.7)" : "rgba(255,255,255,.12)"; g.lineWidth = 1; g.stroke();
-    g.fillStyle = isSel ? "#9ef01a" : BAND_COL[altBand(it.L.altFt)]; g.fillRect(x + 4, y + 5, 2, h - 10);
+    g.fillStyle = isSel ? "#9ef01a" : it.p.mil ? MIL_COL : BAND_COL[altBand(it.L.altFt, it.L.gnd)]; g.fillRect(x + 4, y + 5, 2, h - 10);
     g.fillStyle = "#eaf0f7"; g.font = "700 12px " + DISP; g.fillText(t1, x + 10, y + h / 2 + 0.5);
     g.fillStyle = "#8c99ad"; g.font = "500 10px " + MONO; g.fillText(t2, x + 14 + w1, y + h / 2 + 0.5);
   }
@@ -2192,13 +2354,9 @@ async function batchRoutes() {
           body: JSON.stringify({ planes: chunk.map(p => ({ callsign: p.flight, lat: +p.lat.toFixed(3), lng: +p.lon.toFixed(3) })) }) });
         const by = new Map((Array.isArray(j) ? j : []).map(x => [String(x.callsign || "").trim(), x]));
         for (const p of chunk) {
-          const x = by.get(p.flight);
-          if (x && x._airport_codes_iata && x._airport_codes_iata !== "unknown") {
-            const codes = x._airport_codes_iata.split("-"), aps = Array.isArray(x._airports) ? x._airports : [];
-            const A = (a, c) => a ? { code: c, name: a.name || "", city: a.location || "", lat: a.lat, lon: a.lon } : { code: c, name: "", city: "" };
-            const o = A(aps[0], codes[0]), d = A(aps[aps.length - 1], codes[codes.length - 1]);
-            if (!routeCache.has(p.flight)) routeCache.set(p.flight, { ok: true, from: o.code, to: d.code, fromName: o.city, toName: d.city, fromAp: o, toAp: d, note: x.plausible === false ? "Route not verified for this flight today." : "" });
-          } else if (!routeCache.has(p.flight)) routeCache.set(p.flight, { ok: false, note: "Route not in the free databases. Try the links below." });
+          if (routeCache.has(p.flight)) continue;
+          const aps = lolCandidate(by.get(p.flight));
+          routeCache.set(p.flight, decideRoute(p, aps ? [{ src: "adsb.lol", aps }] : []));
         }
       } catch (e) { /* leave uncached so a later search can retry */ }
       chunk.forEach(p => routePending.delete(p.flight));
@@ -2232,7 +2390,8 @@ function renderFind() {
     const a = airlineOf(p.flight);
     if (rq) { if (!routeMatch(p, rq.from, rq.to)) continue; }
     else if (findTab === "flight") {
-      const hay = [p.flight, flightLabel(p), p.reg, p.type, typeName(p.type), a && a.name, p.hex].filter(Boolean).join("|").toLowerCase().replace(/\s+/g, "");
+      const kc = acClass(p);
+    const hay = [p.flight, flightLabel(p), p.reg, p.type, typeName(p.type), a && a.name, p.hex, kc.label, p.mil ? "military mil defence defense airforce" : "", kc.kind === "heli" ? "helicopter" : "", kc.private ? "private" : "", p.gnd ? "ground parked" : ""].filter(Boolean).join("|").toLowerCase().replace(/\s+/g, "");
       if (q && !hay.includes(q)) continue;
     }
     const v = ref ? enu({ lat: ref.lat, lon: ref.lon, alt: 0 }, p.lat, p.lon, 0) : [0, 0];
@@ -2259,7 +2418,7 @@ function renderFind() {
     const r = routeOf(p), rt = r && r.ok ? `<div class="rr">${esc(r.from)} → ${esc(r.to)}${r.fromName || r.toName ? ` <span style="color:var(--muted);font:500 11px var(--mono)">${esc(r.fromName || "")} → ${esc(r.toName || "")}</span>` : ""}</div>` : "";
     return `<div class="ovr" data-hex="${esc(p.hex)}"><div class="f">${esc(flightLabel(p))}<small>${esc(a ? a.name : typeName(p.type))}</small></div>
       <div class="e" style="font-size:15px;color:var(--fg)">${(d / 1000).toFixed(0)} km</div>
-      <div class="m">${rt}${esc(typeName(p.type) || "—")} · ${fmt(p.altFt)} ft · ${fmt(p.gs)} kt${p.reg ? " · " + esc(p.reg) : ""}</div></div>`;
+      <div class="m">${rt}${esc(typeName(p.type) || "—")} · ${p.gnd ? "on ground" : fmt(p.altFt) + " ft"} · ${fmt(p.gs)} kt${p.reg ? " · " + esc(p.reg) : ""}</div></div>`;
   }).join("") : `<div class="empty">${rq ? (routeBatchBusy ? "Checking routes…" : "No flight on this route is in range right now. Zoom the map out to load more flights.") : `No loaded flight matches “${esc(raw)}”. Only flights in range can be searched, so zoom the map out to load more.`}</div>`);
   const sh = $("#f-show"); if (sh) sh.onclick = e => { e.preventDefault(); applyRouteFilter(rq); };
 }
@@ -2289,6 +2448,7 @@ function renderRouteFilterChip() {
   el.hidden = false;
 }
 $("#f-q").oninput = renderFind;
+$("#f-quick").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; $("#f-q").value = b.dataset.q; renderFind(); });
 $("#f-list").addEventListener("click", e => { const r = e.target.closest(".ovr"); if (r) focusOnMap(r.dataset.hex); });
 $("#f-close").onclick = closeSheets;
 async function focusOnMap(hex) {
@@ -2428,9 +2588,17 @@ function gridFC(o) {
 const offLL = (lat, lon, e, n) => [lon + e / (111320 * Math.cos(lat * DEG)), lat + n / 110540];
 // simplified airliner outline (x = right, y = forward), unit length
 const PLANE_OUTLINE = [[0, 1], [.07, .86], [.08, .3], [.95, -.02], [.95, -.14], [.08, -.06], [.07, -.62], [.34, -.82], [.34, -.92], [0, -.86]];
-function planePoly(lat, lon, track, size) {
+const OUTLINES = {
+  fighter: [[0, 1], [.06, .75], [.08, .3], [.9, -.45], [.9, -.6], [.08, -.38], [.07, -.62], [.3, -.82], [.3, -.95], [0, -.88]],
+  airliner: PLANE_OUTLINE,
+  bizjet: [[0, 1], [.06, .78], [.07, .12], [.78, -.24], [.78, -.36], [.07, -.24], [.06, -.62], [.3, -.84], [.3, -.95], [0, -.9]],
+  turboprop: [[0, 1], [.07, .82], [.07, .36], [.95, .3], [.95, .12], [.07, .05], [.06, -.6], [.32, -.78], [.32, -.9], [0, -.86]],
+  light: [[0, .9], [.08, .76], [.08, .46], [.96, .46], [.96, .26], [.08, .2], [.06, -.55], [.3, -.66], [.3, -.8], [0, -.8]],
+  heli: [[0, .62], [.2, .5], [.22, .12], [.13, -.12], [.04, -.18], [.04, -.84], [.22, -.88], [.22, -.98], [0, -.98]]
+};
+function planePoly(lat, lon, track, size, kind) {
   const t = track * DEG, c = Math.cos(t), sn = Math.sin(t);
-  const half = PLANE_OUTLINE.map(([x, y]) => [x, y]), full = half.concat(half.slice(1, -1).reverse().map(([x, y]) => [-x, y]));
+  const half = (OUTLINES[kind] || PLANE_OUTLINE).map(([x, y]) => [x, y]), full = half.concat(half.slice(1, -1).reverse().map(([x, y]) => [-x, y]));
   const ring = full.map(([x, y]) => { const e = (x * c + y * sn) * size, n = (-x * sn + y * c) * size; return offLL(lat, lon, e, n); });
   ring.push(ring[0]); return [ring];
 }
@@ -2458,11 +2626,17 @@ function draw3d(items, now, sel) {
     const p = it.p, isSel = p.hex === st.mapSel;
     if (ck && isSel) continue; // that's us
     const dim = st.routeFilter && !isSel && !routeMatch(p, st.routeFilter.from, st.routeFilter.to);
-    const col = isSel ? "#9ef01a" : dim ? "#2a3446" : BAND_COL[altBand(it.L.altFt)];
-    const h = Math.max(30, it.L.altFt * FT * ex), sz = size * (isSel ? 1.4 : 1);
-    planes.push({ type: "Feature", properties: { hex: p.hex, color: col, b: h, h: h + sz * 0.16 }, geometry: { type: "Polygon", coordinates: planePoly(it.L.lat, it.L.lon, p.track, sz) } });
-    sticks.push({ type: "Feature", properties: { hex: p.hex, color: col, h }, geometry: { type: "Polygon", coordinates: square(it.L.lat, it.L.lon, sz * 0.045) } });
-    shadows.push({ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: planePoly(it.L.lat, it.L.lon, p.track, sz * 0.9) } });
+    const col = isSel ? "#9ef01a" : dim ? "#2a3446" : p.mil ? MIL_COL : BAND_COL[altBand(it.L.altFt, it.L.gnd)];
+    const k = acClass(p);
+    const h = it.L.gnd ? 6 : Math.max(30, it.L.altFt * FT * ex), sz = size * k.size * (isSel ? 1.4 : 1) * (it.L.gnd && !ck ? 0.8 : 1);
+    planes.push({ type: "Feature", properties: { hex: p.hex, color: col, b: h, h: h + sz * 0.16 }, geometry: { type: "Polygon", coordinates: planePoly(it.L.lat, it.L.lon, p.track, sz, k.kind) } });
+    if (k.kind === "heli") { // two spinning rotor blades
+      const a = (now / 1000) * 6, br = (ang) => { const L2 = sz * 0.95, w2 = sz * 0.05, cs = Math.cos(ang), sn2 = Math.sin(ang);
+        const pts = [[-L2, -w2], [L2, -w2], [L2, w2], [-L2, w2]].map(([x, y]) => offLL(it.L.lat, it.L.lon, x * cs - y * sn2, x * sn2 + y * cs)); pts.push(pts[0]); return [pts]; };
+      for (const ang of [a, a + Math.PI / 2]) planes.push({ type: "Feature", properties: { hex: p.hex, color: col, b: h + sz * 0.18, h: h + sz * 0.22 }, geometry: { type: "Polygon", coordinates: br(ang) } });
+    }
+    if (!it.L.gnd) sticks.push({ type: "Feature", properties: { hex: p.hex, color: col, h }, geometry: { type: "Polygon", coordinates: square(it.L.lat, it.L.lon, sz * 0.045) } });
+    shadows.push({ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: planePoly(it.L.lat, it.L.lon, p.track, sz * 0.9, k.kind) } });
   }
   // selected: 3D curtain under the full flown track + remaining route on the ground
   let path = [];
@@ -2480,7 +2654,7 @@ function draw3d(items, now, sel) {
     if (fp.toDest) path.push(LS(fp.toDest)); else { const f = project(sel.L.lat, sel.L.lon, p.gs * KT * 600, p.track); path.push(LS([[sel.L.lat, sel.L.lon], f])); }
     if (fp.toOrigin) path.push(LS(fp.toOrigin));
     const el = sel3dMarker.getElement();
-    setHTML(el, `<div>${esc(flightLabel(p))}<small>${(sel.L.altFt >= 10000 ? (sel.L.altFt / 1000).toFixed(1) + "k" : fmt(sel.L.altFt))} ft</small></div>`);
+    setHTML(el, `<div>${esc(flightLabel(p))}<small>${shortAlt(sel.L)}</small></div>`);
     sel3dMarker.setLngLat([sel.L.lon, sel.L.lat]).addTo(map3d);
   } else sel3dMarker.remove();
   const o = observer(), FC = features => ({ type: "FeatureCollection", features });
@@ -2669,7 +2843,7 @@ function openDetail(hex) {
   const p = st.planes.get(hex); if (!p) return;
   st.selectedHex = hex; showSheet("detail");
   const a = airlineOf(p.flight);
-  $("#d-airline").textContent = a ? a.name : (p.op || "Aircraft");
+  $("#d-airline").textContent = a ? a.name : (p.op || acClass(p).label);
   $("#d-title").textContent = flightLabel(p);
   $("#d-sub").textContent = [p.flight && a ? p.flight : "", typeName(p.type), p.reg].filter(Boolean).join(" · ") || hex.toUpperCase();
   const links = [];
@@ -2741,17 +2915,17 @@ function renderDetailRoute(p) {
     <div class="times"><div class="tcol">${depHTML}</div><div class="tcol r">${arrHTML}</div></div>
     ${status ? `<div class="status">${esc(status)}</div>` : ""}
     ${remKm != null ? `<div class="status" style="color:var(--muted);font-weight:500">${fmt(remKm)} km to go</div>` : ""}
-  </div>${r.note ? `<div class="routenote">${esc(r.note)}</div>` : ""}${note ? `<div class="routenote">${esc(note)}</div>` : ""}`);
+  </div>${r.verified && !p.demo ? `<div class="routenote" style="color:var(--green)">✓ Route matches this plane's position${r.src ? " · " + esc(r.src) : ""}</div>` : ""}${r.note ? `<div class="routenote">${esc(r.note)}</div>` : ""}${note ? `<div class="routenote">${esc(note)}</div>` : ""}`);
 }
 let routeTick = 0;
 function tickDetailRoute() { const n = Date.now(); if (n - routeTick < 1000) return; routeTick = n; const p = st.planes.get(st.selectedHex); if (p) renderDetailRoute(p); }
 function updateDetail(it) {
   if (!it) return;
   const p = it.p, rows = [
-    ["Altitude", fmt(it.L.altFt) + " ft"], ["Distance", (it.dist / 1000).toFixed(1) + " km"],
+    ["Altitude", it.L.gnd ? (p.gs > 3 ? "On ground · taxiing" : "On ground · parked") : fmt(it.L.altFt) + " ft"], ["Distance", (it.dist / 1000).toFixed(1) + " km"],
     ["Ground speed", fmt(p.gs) + " kt · " + fmt(p.gs * 1.852) + " km/h"], ["Vertical speed", (p.vr > 0 ? "+" : "") + fmt(p.vr) + " ft/min"],
     ["Heading", Math.round(p.track) + "° " + compass(p.track)], ["Look", Math.round(it.az) + "° " + compass(it.az) + " · " + Math.round(it.el) + "° up"],
-    ["Aircraft", typeName(p.type) || "—"], ["Reg / ICAO", (p.reg || "—") + " · " + p.hex.toUpperCase()]
+    ["Aircraft", (typeName(p.type) || "—") + " · " + acClass(p).label], ["Reg / ICAO", (p.reg || "—") + " · " + p.hex.toUpperCase()]
   ];
   setHTML($("#d-grid"), rows.map(([k, v]) => `<div><span class="cap">${k}</span>${esc(v)}</div>`).join(""));
 }
@@ -2854,16 +3028,15 @@ function drawStart(ts) {
     g.fillStyle = sw; g.beginPath(); g.arc(cx, cy, Rpx, 0, Math.PI * 2); g.fill();
   }
   const o = observer();
-  let n = 0, near = null;
+  let n = 0, near = null, ng = 0;
   if (o) {
     for (const p of st.planes.values()) {
       const L = livePlane(p, now), v = enu(o, L.lat, L.lon, L.altFt * FT), gd = Math.hypot(v[0], v[1]);
-      if (gd < 74000) n++;
-      if (!near || gd < near.gd) near = { p, L, gd };
+      if (L.gnd) { if (gd < 15000) ng++; }
+      else { if (gd < 74000) n++; if (!near || gd < near.gd) near = { p, L, gd }; }
       if (gd > rangeM * 1.6) continue;
       const x = cx + v[0] / rangeM * Rpx, y = cy - v[1] / rangeM * Rpx;
-      g.save(); g.translate(x, y); g.rotate(p.track * DEG); g.scale(0.75, 0.75); g.translate(-11.5, -12.5);
-      g.globalAlpha = 0.85; g.fillStyle = BAND_COL[altBand(L.altFt)]; g.fill(PLANE_PATH); g.restore();
+      g.globalAlpha = 0.85; drawAircraft(g, x, y, p, 0.75, p.mil ? MIL_COL : BAND_COL[altBand(L.altFt, L.gnd)], t);
     }
     g.globalAlpha = 1;
     const pulse = (t % 2) / 2;
@@ -2885,7 +3058,7 @@ function drawStart(ts) {
   else if (st.fetchErr && !st.planes.size) { head = `Can't reach<br>flight data`; sub = "Open the app from your workers.dev address, or set a proxy in ⚙︎."; }
   else {
     head = `<span class="ls-big">${n}</span> plane${n === 1 ? "" : "s"}<br>over ${esc(place || "you")}<br>right now`;
-    sub = `within 74 km${ovList.length ? " · " + ovList.length + " heading over you" : ""}`;
+    sub = `within 74 km${ovList.length ? " · " + ovList.length + " heading over you" : ""}${ng ? " · " + ng + " on the ground nearby" : ""}`;
   }
   setHTML($("#ls-count"), head); setHTML($("#ls-sub"), sub);
   const box = $("#ls-near");
@@ -2893,7 +3066,8 @@ function drawStart(ts) {
     lookupRoute(near.p);
     const r = routeOf(near.p), to = r && r.ok ? (r.toName || r.to) : null;
     const trendTxt = near.p.vr > 300 ? " · climbing" : near.p.vr < -300 ? " · descending" : "";
-    setHTML(box, `<div class="cap">Nearest plane</div><div class="f">${esc(flightLabel(near.p))}${to ? ` <span>→</span> ${esc(to)}` : ""}</div>
+    const kc = acClass(near.p), kind = kc.private || kc.kind === "heli" ? ` <small style="font:500 12px var(--mono);color:var(--muted)">${esc(kc.label)}</small>` : "";
+    setHTML(box, `<div class="cap">Nearest plane</div><div class="f">${esc(flightLabel(near.p))}${to ? ` <span>→</span> ${esc(to)}` : kind}</div>
       <div class="m">${(near.gd / 1000).toFixed(1)} km away · ${fmt(near.L.altFt)} ft${trendTxt}</div>`);
     box.hidden = false;
   } else box.hidden = true;

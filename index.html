@@ -1440,7 +1440,11 @@ const SOURCES = {
 };
 async function fetchJSON(url, ms = 7000, opts = {}) {
   const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms);
-  try { const r = await fetch(url, { cache: "no-store", ...opts, signal: ac.signal }); if (!r.ok) throw new Error("HTTP " + r.status); return await r.json(); }
+  try {
+    const r = await fetch(url, { cache: "no-store", ...opts, signal: ac.signal });
+    if (!r.ok) { let d = ""; try { const j = await r.json(); d = j.detail || j.error || ""; } catch (e) {} const er = new Error("HTTP " + r.status + (d ? " – " + d : "")); er.status = r.status; throw er; }
+    return await r.json();
+  }
   finally { clearTimeout(t); }
 }
 function viewTiles(c, ne, sw, dKm) {
@@ -1480,7 +1484,7 @@ async function fetchFrom(c) {
       : src === "proxy" ? S.proxy.replace("{lat}", la).replace("{lon}", lo).replace("{dist}", r) : SOURCES[src](la, lo, r);
     try { const j = await fetchJSON(url); st.source = src; return j; }
     catch (e) {
-      if (src === "same") { st.noSameOrigin = true; continue; } // not hosted on Cloudflare: skip from now on
+      if (src === "same") { if (e.status === 404 || e.status === 405 || e instanceof SyntaxError) st.noSameOrigin = true; else lastErr = "worker: " + (e.name === "AbortError" ? "timeout" : e.message); continue; } // 404 = not hosted on Cloudflare: skip from now on
       lastErr = src + ": " + (e.name === "AbortError" ? "timeout" : (e.message || "blocked"));
     }
   }
@@ -1496,8 +1500,8 @@ async function fetchOnce() {
     if (tiles.length > 1 && !st.noSameOrigin && S.source === "auto") {
       // one request for all circles: the worker spreads the load across the networks
       const q = tiles.map(t => `${t.lat.toFixed(3)},${(((t.lon + 180) % 360 + 360) % 360 - 180).toFixed(3)},${t.r}`).join(";");
-      try { res = [{ status: "fulfilled", value: await fetchJSON(`/api/aircraft?tiles=${q}`) }]; st.source = "same"; }
-      catch (e) { res = null; }
+      try { res = [{ status: "fulfilled", value: await fetchJSON(`/api/aircraft?tiles=${q}`, 9000) }]; st.source = "same"; }
+      catch (e) { res = null; if (e.status === 404 || e.status === 405) st.noSameOrigin = true; }
     }
     if (!res) res = await Promise.allSettled(tiles.map(fetchFrom));
     const ac = [], seen = new Set(); let ok = 0, err = null;

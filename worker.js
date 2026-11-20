@@ -95,14 +95,14 @@ export default {
 //  - a 429 ("too many requests") rests that network for 20 s,
 //  - circles are snapped to a grid so many map positions share one cached answer.
 const SRC = ["live", "lol", "fi"]; // same order as UPSTREAMS
-const rest = { live: 0, lol: 0, fi: 0 }, lastCall = { live: 0, lol: 0, fi: 0 };
+const rest = { live: 0, lol: 0, fi: 0 }, lastCall = { live: 0, lol: 0, fi: 0 }, lastErr = { live: "", lol: "", fi: "" };
 const GAP = { live: 1100, lol: 0, fi: 1100 };
 function snapTile([la, lo, r]) {
   const sla = Math.round(la * 4) / 4, slo = Math.round(lo * 4) / 4; // 0.25 deg grid (~28 km)
   const sr = Math.min(250, Math.ceil((Math.min(250, Math.max(1, r)) + 12) / 10) * 10);
   return [sla, slo, sr];
 }
-async function upstream(i, t, maxAge, mayFetch) {
+async function upstream(i, t, maxAge, mayFetch, timeoutMs = 5000) {
   const src = SRC[i], key = `https://cache.skyflight/ac/${src}/${t[0]}/${t[1]}/${t[2]}`, now = Date.now();
   let cached = null;
   try {
@@ -113,10 +113,10 @@ async function upstream(i, t, maxAge, mayFetch) {
   const canFetch = mayFetch && now >= rest[src] && now - lastCall[src] >= GAP[src];
   if (canFetch) {
     lastCall[src] = now;
-    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 3500);
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), timeoutMs);
     try {
       const r = await fetch(UPSTREAMS[i](t[0].toFixed(4), t[1].toFixed(4), t[2]), { headers: UA, signal: ctl.signal });
-      if (r.status === 429) { rest[src] = now + 20000; throw new Error("429"); }
+      if (r.status === 429) { rest[src] = Date.now() + 20000; throw new Error("HTTP 429"); }
       if (!r.ok) throw new Error("HTTP " + r.status);
       const j = await r.json(), ac = j.ac || j.aircraft || [];
       const at = Date.now();
@@ -126,7 +126,7 @@ async function upstream(i, t, maxAge, mayFetch) {
       } catch (e) {}
       return { at, ac };
     } catch (e) {
-      if (String(e.message) !== "429" && now >= rest[src]) rest[src] = now + 5000; // brief rest after a timeout/error
+      lastErr[src] = e.name === "AbortError" ? "timeout" : String(e.message || e); // only a 429 rests the network
     } finally { clearTimeout(tm); }
   }
   if (cached && now - cached.at <= 40000) return cached; // older answer still fills gaps
@@ -134,13 +134,18 @@ async function upstream(i, t, maxAge, mayFetch) {
 }
 async function aircraftMany(rawTiles) {
   const tiles = rawTiles.map(snapTile), n = tiles.length, turn = Math.floor(Date.now() / 5000);
-  const jobs = [];
+  // adsb.lol for every circle, at most 4 at a time (a worker can only hold ~6 connections open)
+  const lolRes = new Array(n), deadline = Date.now() + 6000; let next = 0;
+  const lolJob = Promise.all(Array.from({ length: Math.min(4, n) }, async () => {
+    while (next < n) { const k = next++, left = deadline - Date.now(); lolRes[k] = await upstream(1, tiles[k], 3000, left > 1500, Math.max(1000, Math.min(5000, left))); }
+  }));
+  const others = [];
   tiles.forEach((t, k) => {
-    jobs.push(upstream(1, t, 3000, true));                          // adsb.lol: every circle
-    jobs.push(upstream(0, t, 3000, n === 1 || k === turn % n));       // airplanes.live: one circle per call
-    jobs.push(upstream(2, t, 3000, n === 1 || k === (turn + 1) % n)); // adsb.fi: a different one
+    others.push(upstream(0, t, 3000, n === 1 || k === turn % n));       // airplanes.live: one circle per call
+    others.push(upstream(2, t, 3000, n === 1 || k === (turn + 1) % n)); // adsb.fi: a different one
   });
-  const results = await Promise.all(jobs), now = Date.now();
+  const jobs = [lolJob.then(() => lolRes), ...others];
+  const results = (await Promise.all(jobs)).flat(), now = Date.now();
   const merged = new Map(); let ok = 0;
   for (const res of results) {
     if (!res) continue; ok++;
@@ -156,7 +161,7 @@ async function aircraftMany(rawTiles) {
       else for (const f in a) if (cur[f] == null) cur[f] = a[f];
     }
   }
-  if (!ok) return json({ error: "all upstreams failed" }, 502);
+  if (!ok) return json({ error: "all upstreams failed", detail: `airplanes.live ${lastErr.live || "skipped"}, adsb.lol ${lastErr.lol || "skipped"}, adsb.fi ${lastErr.fi || "skipped"}` }, 502);
   return json({ ac: [...merged.values()], now, sources: ok }, 200, { "Cache-Control": "no-store" });
 }
 

@@ -819,7 +819,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   .maplibregl-ctrl-attrib a{color:#8fa3c0}
   .maplibregl-ctrl-attrib-button{display:none}
   .maplibregl-marker{position:absolute;top:0;left:0;will-change:transform}
-  .ap3d{font:600 11px var(--mono);color:rgba(234,240,247,.85);display:flex;align-items:center;gap:5px;pointer-events:none;text-shadow:0 1px 3px #000}
+  .ap3d{font:600 11px var(--mono);color:rgba(234,240,247,.85);display:flex;align-items:center;gap:5px;pointer-events:auto;cursor:pointer;padding:6px;margin:-6px;text-shadow:0 1px 3px #000}
   .ap3d i{width:7px;height:7px;border-radius:2px;background:rgba(234,240,247,.9)}
   .sel3d{pointer-events:none;transform:translate(14px,-50%)}
   .sel3d div{padding:4px 9px;border-radius:8px;background:rgba(18,30,6,.94);border:1px solid rgba(158,240,26,.7);font:700 12px var(--disp);color:#eaf0f7;white-space:nowrap}
@@ -902,6 +902,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
   #rfilter i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
   body:not(.map) #rfilter{display:none}
 
+  /* ---------- airport board ---------- */
+  .bd-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+  .bd-code{font:700 34px/1 var(--disp);letter-spacing:1px;color:#ffd23f}
+  .bd-name{font:500 12.5px var(--mono);color:var(--muted);margin-top:4px}
+  .bd-clock{font:600 13px var(--mono);color:#ffd23f;text-align:right}
+  .bd-gnd{margin-top:10px;font:500 12px var(--mono);color:#c4cddb}
+  .board{margin-top:12px;border-radius:12px;overflow:hidden;background:#0b0d11;border:1px solid #1d222c}
+  .brow{display:grid;grid-template-columns:52px 76px 1fr 42px 74px;gap:6px;align-items:center;padding:9px 10px;border-bottom:1px solid #1b2029;
+    font:600 12.5px var(--mono);color:#ffd23f;cursor:pointer}
+  .brow:last-child{border-bottom:0}
+  .brow.hd{cursor:default;color:var(--muted);font-size:10.5px;letter-spacing:1px;text-transform:uppercase;background:#0f1218}
+  .brow .tm small{display:block;font-size:10.5px;color:var(--muted);text-decoration:line-through}
+  .brow .tm.late b{color:var(--coral)}
+  .brow .to{color:#eaf0f7;font:600 13px system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brow .to small{display:block;font:500 10.5px var(--mono);color:var(--muted)}
+  .brow .st{font-size:11px;text-align:right}
+  .st.ok{color:var(--green)} .st.late{color:var(--amber)} .st.brd{color:var(--cyan)} .st.gone{color:var(--muted)} .st.cx{color:var(--red)}
+  .brow.live .fl:after{content:" ●";color:var(--lock);font-size:9px}
+  .bd-src{margin-top:8px;font:500 11px var(--mono);color:var(--dim);text-align:right}
   /* ---------- sheets ---------- */
   #scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:19;animation:fade .2s}
   .sheet{position:fixed;left:0;right:0;bottom:0;max-height:86%;overflow:auto;z-index:20;padding:10px 16px calc(var(--safe-b) + 18px);
@@ -1084,6 +1103,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="links" id="d-links"></div>
   <div style="margin-top:8px"><button class="btn primary full" id="d-switch"></button></div>
   <div style="margin-top:12px"><button class="btn ghost full" id="d-close">Close</button></div>
+</div>
+
+<!-- airport board -->
+<div class="sheet" id="board" hidden>
+  <div class="grab"></div>
+  <div class="bd-head"><div><div class="bd-code" id="b-code">—</div><div class="bd-name" id="b-name"></div></div><div class="bd-clock" id="b-clock"></div></div>
+  <div class="bd-gnd" id="b-gnd"></div>
+  <div class="tabs"><button data-d="dep" class="on">Departures</button><button data-d="arr">Arrivals</button></div>
+  <div id="b-body"></div>
+  <div class="bd-src" id="b-src"></div>
+  <div style="margin-top:12px"><button class="btn ghost full" id="b-close">Close</button></div>
 </div>
 
 <!-- find a flight -->
@@ -2155,6 +2185,11 @@ function initMap() {
   map.on("click", e => {
     let best = null, bd = 28;
     for (const q of st.mapPts) { const dd = Math.hypot(q.x - e.containerPoint.x, q.y - e.containerPoint.y); if (dd < bd) { bd = dd; best = q; } }
+    if (!best) { // tapped an airport? open its departures board
+      let ap = null, ad = 26;
+      for (const a of (st.mapAps || [])) { const dd = Math.hypot(a.x - e.containerPoint.x, a.y - e.containerPoint.y); if (dd < ad) { ad = dd; ap = a; } }
+      if (ap) return openBoard(ap.code);
+    }
     st.mapSel = best ? best.hex : null;
   });
 }
@@ -2200,9 +2235,11 @@ function drawMap(items, now, hdg) {
     for (let la = Math.floor(b.getSouth() / step) * step; la <= b.getNorth(); la += step) { const y = pt(la, b.getWest()).y; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
     for (let lo = Math.floor(b.getWest() / step) * step; lo <= b.getEast(); lo += step) { const x = pt(b.getSouth(), lo).x; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
   }
-  // airports
+  // airports (tap one for its departures/arrivals board)
+  st.mapAps = [];
   if (z >= 6) for (const [code, name, la, lo] of AIRPORTS) {
     const q = pt(la, lo); if (q.x < -80 || q.x > W + 20 || q.y < -20 || q.y > H + 20) continue;
+    st.mapAps.push({ code, x: q.x, y: q.y });
     g.fillStyle = "rgba(234,240,247,.9)"; rr(g, q.x - 4, q.y - 4, 8, 8, 2); g.fill();
     g.fillStyle = "#0a1120"; g.fillRect(q.x - 1, q.y - 2.5, 2, 5);
     g.textAlign = "left"; g.textBaseline = "middle";
@@ -2543,6 +2580,7 @@ async function init3d() {
   sel3dMarker = new maplibregl.Marker({ element: Object.assign(document.createElement("div"), { className: "sel3d" }), anchor: "left" });
   ap3dMarkers = AIRPORTS.map(([code, , la, lo]) => {
     const el = document.createElement("div"); el.className = "ap3d"; el.innerHTML = "<i></i>" + code;
+    el.addEventListener("click", ev => { ev.stopPropagation(); if (st.cam !== "cockpit") openBoard(code); });
     return new maplibregl.Marker({ element: el, anchor: "left" }).setLngLat([lo, la]).addTo(map3d);
   });
 }
@@ -2834,9 +2872,106 @@ function cockpitCam(sel, now) {
   setHTML($("#h-route"), [a ? a.name : "", typeName(p.type), r && r.ok ? r.from + " → " + r.to : ""].filter(Boolean).map(esc).join(" · "));
 }
 
+/* ---------------- airport departures / arrivals board ---------------- */
+const boardCache = new Map(); // `${code}/${dir}` -> { at, data }
+let boardState = { code: null, dir: "dep" };
+const AP_FULLNAME = { BLR: "Kempegowda International", DEL: "Indira Gandhi International", BOM: "Chhatrapati Shivaji Maharaj International", MAA: "Chennai International",
+  HYD: "Rajiv Gandhi International", CCU: "Netaji Subhas Chandra Bose International", COK: "Cochin International", GOI: "Goa (Dabolim)", HAL: "HAL Airport", YLK: "Yelahanka Air Force Station" };
+const BOARD_CODE = { HAL: "VOBG", YLK: "VOYK" }; // airports without an IATA code: use ICAO
+function openBoard(code) {
+  boardState = { code, dir: "dep" };
+  document.querySelectorAll("#board .tabs button").forEach(b => b.classList.toggle("on", b.dataset.d === "dep"));
+  st.selectedHex = null; showSheet("board"); renderBoard(); loadBoard();
+}
+document.querySelectorAll("#board .tabs button").forEach(b => b.onclick = () => {
+  boardState.dir = b.dataset.d;
+  document.querySelectorAll("#board .tabs button").forEach(x => x.classList.toggle("on", x === b));
+  renderBoard(); loadBoard();
+});
+$("#b-close").onclick = closeSheets;
+async function loadBoard() {
+  const { code, dir } = boardState, key = code + "/" + dir, c = boardCache.get(key);
+  if (c && (c.loading || Date.now() - c.at < 120e3)) return;
+  const q = BOARD_CODE[code] || code, u = apiUrl(`/api/airport?code=${encodeURIComponent(q)}&dir=${dir}`) || (!st.noSameOrigin ? `/api/airport?code=${encodeURIComponent(q)}&dir=${dir}` : null);
+  if (!u) { boardCache.set(key, { at: Date.now(), err: "noproxy" }); renderBoard(); return; }
+  boardCache.set(key, Object.assign({}, c, { loading: true })); renderBoard();
+  let res;
+  try {
+    const r = await fetch(u, { cache: "no-store" });
+    res = r.status === 501 ? { err: "nokey" } : r.ok ? { data: await r.json() } : { err: "fail", status: r.status };
+  } catch (e) { res = { err: "fail" }; }
+  boardCache.set(key, Object.assign({ at: Date.now() }, res));
+  if (boardState.code === code && boardState.dir === dir && !$("#board").hidden) renderBoard();
+}
+function boardStatus(r) {
+  const s = (r.status || "").toLowerCase(), late = r.est && r.sched ? (Date.parse(r.est) - Date.parse(r.sched)) / 60000 : 0;
+  if (r.cancelled || /cancel/.test(s)) return ["Cancelled", "cx"];
+  if (/divert/.test(s)) return ["Diverted", "cx"];
+  if (/board/.test(s)) return ["Boarding", "brd"];
+  if (/gate ?closed/.test(s)) return ["Gate closed", "brd"];
+  if (/depart|en ?route|airborne|taxi/.test(s) || (boardState.dir === "dep" && r.actual)) return [boardState.dir === "dep" ? "Departed" : "En route", "gone"];
+  if (/arriv|landed/.test(s) || (boardState.dir === "arr" && r.actual)) return ["Landed", "gone"];
+  if (/approach|expected/.test(s) && boardState.dir === "arr" && late <= 15) return ["Expected", "ok"];
+  if (late > 15) return ["Delayed " + Math.round(late) + "m", "late"];
+  if (/check/.test(s)) return ["Check-in", "ok"];
+  return ["On time", "ok"];
+}
+const normFl = x => (x || "").toUpperCase().replace(/\s+/g, "");
+function planeForRow(r) {
+  const want = [normFl(r.flight), normFl(r.callsign)].filter(Boolean);
+  for (const p of st.planes.values()) if (want.includes(normFl(p.flight)) || want.includes(normFl(flightLabel(p)))) return p;
+  return null;
+}
+function renderBoard() {
+  const { code, dir } = boardState, ap = AIRPORTS.find(a => a[0] === code), c = boardCache.get(code + "/" + dir);
+  const tz = (c && c.data && c.data.tz) || (ap ? "Asia/Kolkata" : undefined);
+  $("#b-code").textContent = code;
+  $("#b-name").textContent = (AP_FULLNAME[code] || (ap ? ap[1] : "")) + (ap ? " · " + ap[1] : "");
+  const clk = fmtClock(new Date().toISOString(), tz); $("#b-clock").textContent = clk ? clk.hm + " " + clk.z : "";
+  // aircraft actually seen on the ground there right now (from ADS-B)
+  if (ap) {
+    const gnd = [...st.planes.values()].filter(p => p.gnd && gcKm(p.lat, p.lon, ap[2], ap[3]) < 4);
+    $("#b-gnd").textContent = gnd.length ? `${gnd.length} aircraft seen on the ground here right now` : "No aircraft are being received on the ground here right now.";
+  } else $("#b-gnd").textContent = "";
+  let body = "", src = "";
+  if (!c || (c.loading && !c.data)) body = `<div class="empty">Loading the ${dir === "dep" ? "departures" : "arrivals"} board…</div>`;
+  else if (c.err === "nokey") body = `<div class="empty">Airport boards need a free data key in your Cloudflare worker.<br><br>
+    <b>Easiest:</b> sign up at rapidapi.com, subscribe to <b>AeroDataBox</b> (free Basic plan), copy your RapidAPI key, then in Cloudflare → Workers &amp; Pages → skyflight → Settings → Variables and Secrets → Add a <b>Secret</b> named <b>AERODATABOX_KEY</b>.<br><br>
+    A FlightAware key (<b>AEROAPI_KEY</b>) works too.</div>`;
+  else if (c.err === "noproxy") body = `<div class="empty">Open the app from your workers.dev address to see airport boards.</div>`;
+  else if (c.err) body = `<div class="empty">Couldn't load this board right now${c.status ? " (error " + c.status + ")" : ""}. Try again in a minute.</div>`;
+  else {
+    const rows = (c.data.rows || []).filter(r => r.sched).sort((a, b) => Date.parse(a.sched) - Date.parse(b.sched));
+    const now = Date.now(), keep = rows.filter(r => Date.parse(r.actual || r.est || r.sched) > now - 45 * 60e3).slice(0, 40);
+    if (!keep.length) body = `<div class="empty">No ${dir === "dep" ? "departures" : "arrivals"} listed for the next few hours.</div>`;
+    else {
+      body = `<div class="board"><div class="brow hd"><span>Time</span><span>Flight</span><span>${dir === "dep" ? "To" : "From"}</span><span>Gate</span><span style="text-align:right">Status</span></div>` +
+        keep.map(r => {
+          const sch = fmtClock(r.sched, tz), est = r.est && Math.abs(Date.parse(r.est) - Date.parse(r.sched)) > 4 * 60e3 ? fmtClock(r.est, tz) : null;
+          const [stx, scls] = boardStatus(r), live = planeForRow(r);
+          return `<div class="brow${live ? " live" : ""}" data-fl="${esc(r.flight)}" data-cs="${esc(r.callsign)}">
+            <span class="tm${est ? " late" : ""}">${est ? `<b>${est.hm}</b><small>${sch.hm}</small>` : `<b>${sch ? sch.hm : "—"}</b>`}</span>
+            <span class="fl">${esc(r.flight || r.callsign || "—")}</span>
+            <span class="to">${esc(r.other.city || r.other.name || r.other.code || "—")}<small>${esc([r.other.code, r.airline].filter(Boolean).join(" · "))}</small></span>
+            <span>${esc(r.gate || (r.terminal ? "T" + r.terminal : "—"))}</span>
+            <span class="st ${scls}">${esc(stx)}</span></div>`;
+        }).join("") + `</div>`;
+    }
+    src = `Source: ${c.data.source === "aerodatabox" ? "AeroDataBox" : "FlightAware"} · ● = tracked live · tap a flight`;
+  }
+  setHTML($("#b-body"), body); $("#b-src").textContent = src;
+}
+$("#b-body").addEventListener("click", e => {
+  const row = e.target.closest(".brow"); if (!row || row.classList.contains("hd")) return;
+  const p = planeForRow({ flight: row.dataset.fl, callsign: row.dataset.cs });
+  if (p) focusOnMap(p.hex); else toast("This flight isn't being tracked live right now (not airborne or out of range).");
+});
+// keep the board's clock and live dots fresh while it's open
+setInterval(() => { if (!$("#board").hidden) { renderBoard(); loadBoard(); } }, 30000);
+
 /* ---------------- details sheet ---------------- */
-function showSheet(id) { document.body.classList.add("sheet-open"); $("#scrim").hidden = false; ["detail", "settings", "overhead", "find"].forEach(k => $("#" + k).hidden = id !== k); }
-function closeSheets() { document.body.classList.remove("sheet-open"); $("#scrim").hidden = true; ["detail", "settings", "overhead", "find"].forEach(k => $("#" + k).hidden = true); st.selectedHex = null; }
+function showSheet(id) { document.body.classList.add("sheet-open"); $("#scrim").hidden = false; ["detail", "settings", "overhead", "find", "board"].forEach(k => $("#" + k).hidden = id !== k); }
+function closeSheets() { document.body.classList.remove("sheet-open"); $("#scrim").hidden = true; ["detail", "settings", "overhead", "find", "board"].forEach(k => $("#" + k).hidden = true); st.selectedHex = null; }
 $("#scrim").onclick = closeSheets;
 
 function openDetail(hex) {

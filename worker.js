@@ -12,6 +12,11 @@
 //   GET  /api/flight?ident=IGO6123                   scheduled/actual times (FlightAware AeroAPI)
 //   GET  /api/trace?hex=800abc                       full flown track of the current flight (community ADS-B traces)
 //   GET  /api/place?lat=12.97&lon=77.59              city name for the start screen (OpenStreetMap Nominatim)
+//   GET  /api/airport?code=HYD&dir=dep|arr           departures / arrivals board (AeroDataBox or FlightAware)
+//
+// Airport boards need ONE of these secrets (Settings → Variables and Secrets → Add → Type: Secret):
+//   AERODATABOX_KEY  your RapidAPI key for AeroDataBox (free Basic plan)  ← recommended, one request per board
+//   AEROAPI_KEY      the FlightAware key (also used for flight times)
 //
 // Schedule times need a FlightAware AeroAPI key (Personal tier has a free monthly allowance):
 //   Cloudflare dashboard → Workers & Pages → skyflight → Settings → Variables and Secrets
@@ -43,6 +48,7 @@ export default {
     if (u.pathname === "/api/flight") return flight(u.searchParams.get("ident") || "", env);
     if (u.pathname === "/api/trace") return trace(u.searchParams.get("hex") || "");
     if (u.pathname === "/api/place") return place(u.searchParams.get("lat"), u.searchParams.get("lon"));
+    if (u.pathname === "/api/airport") return airportBoard(u.searchParams.get("code") || "", u.searchParams.get("dir") === "arr" ? "arr" : "dep", env);
     if (!isAircraft && !isRoute) {
       if (env && env.ASSETS) return env.ASSETS.fetch(request); // the app itself
       return json({ ok: true, usage: "GET /api/aircraft?lat=12.97&lon=77.59&dist=40" });
@@ -208,4 +214,73 @@ async function place(lat, lon) {
     await cache.put(key, new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=86400" } }));
     return new Response(body, { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) { return json({ name: null }, 200); }
+}
+
+// ---------- airport departures / arrivals board ----------
+// Normalised row: { flight, callsign, airline, other:{code,name,city}, sched, est, actual, gate, terminal, status, aircraft, reg, cancelled }
+async function airportBoard(code, dir, env) {
+  code = code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  if (code.length < 3) return json({ error: "airport code required" }, 400);
+  const provider = env && env.AERODATABOX_KEY ? "aerodatabox" : env && env.AEROAPI_KEY ? "flightaware" : null;
+  if (!provider) return json({ error: "no_key" }, 501);
+  const cache = caches.default, key = new Request(`https://cache.skyflight.internal/board/${provider}/${code}/${provider === "aerodatabox" ? "both" : dir}`);
+  const hit = await cache.match(key);
+  let data = hit ? await hit.json() : null;
+  if (!data) {
+    try { data = provider === "aerodatabox" ? await boardADB(code, env.AERODATABOX_KEY) : await boardFA(code, dir, env.AEROAPI_KEY); }
+    catch (e) { return json({ error: "provider", detail: String(e.message || e) }, 502); }
+    await cache.put(key, new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" } }));
+  }
+  const rows = (dir === "arr" ? data.arrivals : data.departures) || [];
+  return json({ code, dir, source: provider, tz: data.tz || null, name: data.name || null, rows });
+}
+async function boardADB(code, apiKey) {
+  const host = "aerodatabox.p.rapidapi.com", type = code.length === 4 ? "icao" : "iata";
+  const headers = { "X-RapidAPI-Key": apiKey, "X-RapidAPI-Host": host, Accept: "application/json" };
+  const q = "direction=Both&withLeg=false&withCancelled=true&withCodeshared=false&withCargo=true&withPrivate=true&withLocation=false";
+  // relative window: 1 h ago → 6 h ahead
+  let r = await fetch(`https://${host}/flights/airports/${type}/${code}?offsetMinutes=-60&durationMinutes=420&${q}`, { headers });
+  if (r.status === 404 || r.status === 400) { // fall back to the absolute-time form (local time; India assumed if unknown)
+    const loc = d => new Date(d.getTime() + 330 * 60e3).toISOString().slice(0, 16);
+    const now = new Date();
+    r = await fetch(`https://${host}/flights/airports/${type}/${code}/${loc(new Date(now - 60 * 60e3))}/${loc(new Date(+now + 6 * 3600e3))}?${q}`, { headers });
+  }
+  if (!r.ok) throw new Error("AeroDataBox HTTP " + r.status);
+  const j = await r.json();
+  const row = (f, side) => {
+    const m = f.movement || f[side] || {}, ap = m.airport || {};
+    return { flight: f.number || "", callsign: f.callSign || "", airline: (f.airline && f.airline.name) || "",
+      other: { code: ap.iata || ap.icao || "", name: ap.name || "", city: ap.municipalityName || ap.shortName || ap.name || "" },
+      sched: m.scheduledTime && m.scheduledTime.utc, est: m.revisedTime && m.revisedTime.utc, actual: m.runwayTime && m.runwayTime.utc,
+      gate: m.gate || "", terminal: m.terminal || "", status: f.status || "", aircraft: (f.aircraft && f.aircraft.model) || "", reg: (f.aircraft && f.aircraft.reg) || "",
+      cancelled: /cancel/i.test(f.status || "") };
+  };
+  const fix = s => s ? s.replace(" ", "T").replace(/Z?$/, "Z") : s; // "2026-11-20 06:40Z" → ISO
+  const norm = r => Object.assign(r, { sched: fix(r.sched), est: fix(r.est), actual: fix(r.actual) });
+  return { departures: (j.departures || []).map(f => norm(row(f, "departure"))), arrivals: (j.arrivals || []).map(f => norm(row(f, "arrival"))) };
+}
+async function boardFA(code, dir, apiKey) {
+  const base = "https://aeroapi.flightaware.com/aeroapi/airports/" + code + "/flights/";
+  const headers = { "x-apikey": apiKey, Accept: "application/json" };
+  const now = Date.now(), iso = t => new Date(t).toISOString().replace(/\.\d+Z$/, "Z");
+  const kinds = dir === "dep" ? ["departures", "scheduled_departures"] : ["arrivals", "scheduled_arrivals"];
+  const out = [];
+  for (const k of kinds) {
+    const win = k.startsWith("scheduled") ? `start=${iso(now - 30 * 60e3)}&end=${iso(now + 6 * 3600e3)}` : `start=${iso(now - 90 * 60e3)}&end=${iso(now)}`;
+    const r = await fetch(base + k + "?max_pages=1&" + win, { headers });
+    if (!r.ok) throw new Error("FlightAware HTTP " + r.status);
+    const j = await r.json();
+    for (const f of (j[k] || [])) {
+      const dep = dir === "dep", ap = dep ? f.destination : f.origin;
+      out.push({ flight: f.ident_iata || f.ident || "", callsign: f.ident_icao || f.ident || "", airline: f.operator_iata || f.operator || "",
+        other: { code: ap ? (ap.code_iata || ap.code_icao || ap.code || "") : "", name: ap ? ap.name || "" : "", city: ap ? ap.city || "" : "" },
+        sched: dep ? f.scheduled_out : f.scheduled_in, est: dep ? f.estimated_out : f.estimated_in, actual: dep ? (f.actual_out || f.actual_off) : (f.actual_in || f.actual_on),
+        gate: dep ? f.gate_origin || "" : f.gate_destination || "", terminal: dep ? f.terminal_origin || "" : f.terminal_destination || "",
+        status: f.status || "", aircraft: f.aircraft_type || "", reg: f.registration || "", cancelled: !!f.cancelled, tz: (dep ? f.origin : f.destination || {}) ? (dep ? f.origin && f.origin.timezone : f.destination && f.destination.timezone) : null });
+    }
+  }
+  const seen = new Set(), rows = out.filter(r => { const k = r.flight + r.sched; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => Date.parse(a.sched || 0) - Date.parse(b.sched || 0));
+  const tz = (rows.find(r => r.tz) || {}).tz || null;
+  return dir === "dep" ? { departures: rows, tz } : { arrivals: rows, tz };
 }

@@ -35,8 +35,8 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 const UA = { "User-Agent": "SkyFlight/1.0 (personal AR plane spotter)" };
-const json = (obj, status = 200) =>
-  new Response(JSON.stringify(obj), { status, headers: { ...CORS, "Content-Type": "application/json" } });
+const json = (obj, status = 200, extra = {}) =>
+  new Response(JSON.stringify(obj), { status, headers: { ...CORS, "Content-Type": "application/json", ...extra } });
 
 export default {
   async fetch(request, env) {
@@ -68,7 +68,13 @@ export default {
       }
     }
 
-    // Aircraft near a point
+    // Aircraft near a point, or several points at once (?tiles=lat,lon,r;lat,lon,r...)
+    if (u.searchParams.has("tiles")) {
+      const tiles = (u.searchParams.get("tiles") || "").split(";").slice(0, 9).map(t => t.split(",").map(Number))
+        .filter(t => t.length === 3 && t.every(Number.isFinite) && Math.abs(t[0]) <= 90 && Math.abs(t[1]) <= 180);
+      if (!tiles.length) return json({ error: "bad tiles" }, 400);
+      return aircraftMany(tiles);
+    }
     if (!u.searchParams.has("lat") || !u.searchParams.has("lon")) return json({ error: "lat and lon required" }, 400);
     const lat = Number(u.searchParams.get("lat"));
     const lon = Number(u.searchParams.get("lon"));
@@ -76,17 +82,83 @@ export default {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
       return json({ error: "bad lat/lon" }, 400);
     }
-    let lastErr = "";
-    for (const build of UPSTREAMS) {
-      try {
-        const r = await fetch(build(lat.toFixed(4), lon.toFixed(4), Math.round(dist)), { headers: UA, cf: { cacheTtl: 3 } });
-        if (r.ok) return new Response(r.body, { headers: { ...CORS, "Content-Type": "application/json", "Cache-Control": "max-age=3" } });
-        lastErr = "HTTP " + r.status;
-      } catch (e) { lastErr = String(e); }
-    }
-    return json({ error: "all upstreams failed", detail: lastErr }, 502);
+    return aircraftMany([[lat, lon, dist]]);
   },
 };
+
+// ---------- live aircraft (merged from three volunteer networks) ----------
+// airplanes.live and adsb.fi allow about 1 request per second, so a zoomed-out map
+// (up to 9 circles) can't ask both of them about every circle every 5 s. Instead:
+//  - adsb.lol is asked about every circle each time (fresh, 3 s cache),
+//  - airplanes.live and adsb.fi refresh one circle per call (taking turns), and
+//    for the other circles their last answer (up to 40 s old) fills gaps,
+//  - a 429 ("too many requests") rests that network for 20 s,
+//  - circles are snapped to a grid so many map positions share one cached answer.
+const SRC = ["live", "lol", "fi"]; // same order as UPSTREAMS
+const rest = { live: 0, lol: 0, fi: 0 }, lastCall = { live: 0, lol: 0, fi: 0 };
+const GAP = { live: 1100, lol: 0, fi: 1100 };
+function snapTile([la, lo, r]) {
+  const sla = Math.round(la * 4) / 4, slo = Math.round(lo * 4) / 4; // 0.25 deg grid (~28 km)
+  const sr = Math.min(250, Math.ceil((Math.min(250, Math.max(1, r)) + 12) / 10) * 10);
+  return [sla, slo, sr];
+}
+async function upstream(i, t, maxAge, mayFetch) {
+  const src = SRC[i], key = `https://cache.skyflight/ac/${src}/${t[0]}/${t[1]}/${t[2]}`, now = Date.now();
+  let cached = null;
+  try {
+    const hit = await caches.default.match(key);
+    if (hit) cached = { at: Number(hit.headers.get("x-at")) || 0, ac: (await hit.json()).ac || [] };
+  } catch (e) {}
+  if (cached && now - cached.at <= maxAge) return cached;
+  const canFetch = mayFetch && now >= rest[src] && now - lastCall[src] >= GAP[src];
+  if (canFetch) {
+    lastCall[src] = now;
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 3500);
+    try {
+      const r = await fetch(UPSTREAMS[i](t[0].toFixed(4), t[1].toFixed(4), t[2]), { headers: UA, signal: ctl.signal });
+      if (r.status === 429) { rest[src] = now + 20000; throw new Error("429"); }
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json(), ac = j.ac || j.aircraft || [];
+      const at = Date.now();
+      try {
+        await caches.default.put(key, new Response(JSON.stringify({ ac }), {
+          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=60", "x-at": String(at) } }));
+      } catch (e) {}
+      return { at, ac };
+    } catch (e) {
+      if (String(e.message) !== "429" && now >= rest[src]) rest[src] = now + 5000; // brief rest after a timeout/error
+    } finally { clearTimeout(tm); }
+  }
+  if (cached && now - cached.at <= 40000) return cached; // older answer still fills gaps
+  return null;
+}
+async function aircraftMany(rawTiles) {
+  const tiles = rawTiles.map(snapTile), n = tiles.length, turn = Math.floor(Date.now() / 5000);
+  const jobs = [];
+  tiles.forEach((t, k) => {
+    jobs.push(upstream(1, t, 3000, true));                          // adsb.lol: every circle
+    jobs.push(upstream(0, t, 3000, n === 1 || k === turn % n));       // airplanes.live: one circle per call
+    jobs.push(upstream(2, t, 3000, n === 1 || k === (turn + 1) % n)); // adsb.fi: a different one
+  });
+  const results = await Promise.all(jobs), now = Date.now();
+  const merged = new Map(); let ok = 0;
+  for (const res of results) {
+    if (!res) continue; ok++;
+    const age = Math.max(0, (now - res.at) / 1000);
+    for (const a0 of res.ac) {
+      if (!a0 || !a0.hex || a0.lat == null || a0.lon == null) continue;
+      const a = age > 0.5 ? Object.assign({}, a0, { seen_pos: (a0.seen_pos || 0) + age, seen: (a0.seen || 0) + age }) : a0;
+      if (a.seen_pos > 60) continue; // too old to be useful
+      const k = a.hex.toLowerCase(), cur = merged.get(k);
+      // keep the freshest position; fill missing fields from the other copy
+      if (!cur) merged.set(k, a);
+      else if ((a.seen_pos ?? 99) < (cur.seen_pos ?? 99)) merged.set(k, Object.assign({}, cur, a));
+      else for (const f in a) if (cur[f] == null) cur[f] = a[f];
+    }
+  }
+  if (!ok) return json({ error: "all upstreams failed" }, 502);
+  return json({ ac: [...merged.values()], now, sources: ok }, 200, { "Cache-Control": "no-store" });
+}
 
 // ---------- airports for a callsign (adsbdb) ----------
 async function callsign(cs) {

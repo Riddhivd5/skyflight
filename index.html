@@ -1443,39 +1443,70 @@ async function fetchJSON(url, ms = 7000, opts = {}) {
   try { const r = await fetch(url, { cache: "no-store", ...opts, signal: ac.signal }); if (!r.ok) throw new Error("HTTP " + r.status); return await r.json(); }
   finally { clearTimeout(t); }
 }
-function fetchCenter() {
+function viewTiles(c, ne, sw, dKm) {
+  // one request covers <=250 nm (463 km); split large views into a grid of smaller circles
+  const rNm = dKm / 1.852;
+  if (rNm <= 250) return [{ lat: c.lat, lon: c.lng, r: Math.max(10, Math.ceil(rNm)) }];
+  const n = Math.min(3, Math.ceil(rNm / 250) + 1), out = [];
+  const dLat = (ne.lat - sw.lat) / n, dLon = (ne.lng - sw.lng) / n;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const la = sw.lat + dLat * (i + 0.5), lo = sw.lng + dLon * (j + 0.5);
+    const r = Math.ceil(gcKm(la, lo, la + dLat / 2, lo + dLon / 2) / 1.852) + 5;
+    out.push({ lat: la, lon: lo, r: Math.min(250, Math.max(10, r)) });
+  }
+  return out;
+}
+function fetchCenters() {
   if (S.mode === "map" && map) {
-    const c = map.getCenter(), ne = map.getBounds().getNorthEast();
-    return { lat: c.lat, lon: c.lng, r: Math.max(10, Math.min(250, Math.ceil(map.distance(c, ne) / 1852))) };
+    const c = map.getCenter(), b = map.getBounds();
+    return viewTiles(c, b.getNorthEast(), b.getSouthWest(), map.distance(c, b.getNorthEast()) / 1000);
   }
   if (S.mode === "3d" && map3d) {
     const c = map3d.getCenter(), b = map3d.getBounds(), ne = b.getNorthEast();
-    return { lat: c.lat, lon: c.lng, r: Math.max(10, Math.min(250, Math.ceil(gcKm(c.lat, c.lng, ne.lat, ne.lng) / 1.852))) };
+    return viewTiles(c, ne, b.getSouthWest(), gcKm(c.lat, c.lng, ne.lat, ne.lng));
   }
-  const o = observer(); return o ? { lat: o.lat, lon: o.lon, r: Math.round(S.radiusNm) } : null;
+  const o = observer(); return o ? [{ lat: o.lat, lon: o.lon, r: Math.round(S.radiusNm) }] : null;
+}
+function fetchCenter() { const t = fetchCenters(); return t ? t[0] : null; }
+async function fetchFrom(c) {
+  const la = c.lat.toFixed(4), lo = ((((c.lon + 180) % 360) + 360) % 360 - 180).toFixed(4), r = c.r;
+  let order;
+  if (S.source === "proxy" && S.proxy) order = ["proxy"];
+  else if (S.source !== "auto" && SOURCES[S.source]) order = [S.source];
+  else { order = Object.keys(SOURCES); if (st.source && SOURCES[st.source]) order = [st.source, ...order.filter(k => k !== st.source)]; if (S.proxy) order = ["proxy", ...order]; if (!st.noSameOrigin) order = ["same", ...order]; }
+  let lastErr = null;
+  for (const src of order) {
+    const url = src === "same" ? `/api/aircraft?lat=${la}&lon=${lo}&dist=${r}`
+      : src === "proxy" ? S.proxy.replace("{lat}", la).replace("{lon}", lo).replace("{dist}", r) : SOURCES[src](la, lo, r);
+    try { const j = await fetchJSON(url); st.source = src; return j; }
+    catch (e) {
+      if (src === "same") { st.noSameOrigin = true; continue; } // not hosted on Cloudflare: skip from now on
+      lastErr = src + ": " + (e.name === "AbortError" ? "timeout" : (e.message || "blocked"));
+    }
+  }
+  throw new Error(lastErr || "no source");
 }
 async function fetchOnce() {
   if (S.demo) { demoTick(observer()); return; }
-  const c = fetchCenter();
-  if (!c || st.fetching) return;
+  const tiles = fetchCenters();
+  if (!tiles || st.fetching) return;
   st.fetching = true; st.lastReq = Date.now();
   try {
-    const la = c.lat.toFixed(4), lo = ((((c.lon + 180) % 360) + 360) % 360 - 180).toFixed(4), r = c.r;
-    let order;
-    if (S.source === "proxy" && S.proxy) order = ["proxy"];
-    else if (S.source !== "auto" && SOURCES[S.source]) order = [S.source];
-    else { order = Object.keys(SOURCES); if (st.source && SOURCES[st.source]) order = [st.source, ...order.filter(k => k !== st.source)]; if (S.proxy) order = ["proxy", ...order]; if (!st.noSameOrigin) order = ["same", ...order]; }
-    let ok = false, lastErr = null;
-    for (const src of order) {
-      const url = src === "same" ? `/api/aircraft?lat=${la}&lon=${lo}&dist=${r}`
-        : src === "proxy" ? S.proxy.replace("{lat}", la).replace("{lon}", lo).replace("{dist}", r) : SOURCES[src](la, lo, r);
-      try { ingest(await fetchJSON(url), Date.now()); st.source = src; st.fetchErr = null; ok = true; break; }
-      catch (e) {
-        if (src === "same") { st.noSameOrigin = true; continue; } // not hosted on Cloudflare: skip from now on
-        lastErr = src + ": " + (e.name === "AbortError" ? "timeout" : (e.message || "blocked"));
-      }
+    let res;
+    if (tiles.length > 1 && !st.noSameOrigin && S.source === "auto") {
+      // one request for all circles: the worker spreads the load across the networks
+      const q = tiles.map(t => `${t.lat.toFixed(3)},${(((t.lon + 180) % 360 + 360) % 360 - 180).toFixed(3)},${t.r}`).join(";");
+      try { res = [{ status: "fulfilled", value: await fetchJSON(`/api/aircraft?tiles=${q}`) }]; st.source = "same"; }
+      catch (e) { res = null; }
     }
-    if (!ok) st.fetchErr = lastErr || "no source";
+    if (!res) res = await Promise.allSettled(tiles.map(fetchFrom));
+    const ac = [], seen = new Set(); let ok = 0, err = null;
+    for (const r of res) {
+      if (r.status !== "fulfilled") { err = r.reason && r.reason.message; continue; }
+      ok++;
+      for (const a of (r.value.ac || r.value.aircraft || [])) if (a && a.hex && !seen.has(a.hex)) { seen.add(a.hex); ac.push(a); }
+    }
+    if (ok) { ingest({ ac }, Date.now()); st.fetchErr = null; } else st.fetchErr = err || "no source";
   } finally { st.fetching = false; }
 }
 async function poll() { try { await fetchOnce(); } catch (e) { st.fetchErr = String(e); } setTimeout(poll, S.demo ? 1000 : 5000); }
@@ -1492,6 +1523,7 @@ function ingest(j, now) {
     const altFt = gnd ? 0 : (typeof a.alt_geom === "number" ? a.alt_geom : (typeof a.alt_baro === "number" ? a.alt_baro : null));
     if (altFt == null) continue;
     const prev = st.planes.get(a.hex) || {};
+    if (prev.t0 && now - (a.seen_pos || 0) * 1000 < prev.t0 - 500) { prev.seen = now; continue; } // older copy than we already have
     // turn rate (deg/s) from successive tracks, used to bank the cockpit camera
     const newTrack = a.track != null ? a.track : (a.true_heading || 0);
     if (prev.track != null && prev.seen) {
